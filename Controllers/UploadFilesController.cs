@@ -6,7 +6,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.OpenApi.Services;
+using PdfSharpCore.Pdf.IO;
+using PdfSharpCore.Pdf;
 using System.Data;
+
 using System.IO.Compression;
 
 namespace DocuBot_Api.Controllers
@@ -16,14 +19,19 @@ namespace DocuBot_Api.Controllers
     public class UploadFilesController : ControllerBase
     {
         private readonly IConfiguration _configuration;
-      
+        private static readonly string OutputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "outputfiles");
+
 
         public UploadFilesController(IConfiguration configuration)
         {
             _configuration = configuration;
-           
+
+
+            
         }
-      
+
+        
+
         [HttpPost("ProcessDocument")]
         public async Task<IActionResult> ProcessDocument(string refDoc1)
         {
@@ -77,7 +85,7 @@ namespace DocuBot_Api.Controllers
                 {
                     await connection.OpenAsync();
 
-                    using (SqlCommand command = new SqlCommand("usp_keyvaluedetails", connection))
+                    using (SqlCommand command = new SqlCommand("usp_SinglHTMPageKVal", connection))
                     {
                         command.CommandType = CommandType.StoredProcedure;
                         command.Parameters.AddWithValue("@doctype", doctype);
@@ -117,7 +125,6 @@ namespace DocuBot_Api.Controllers
             }
         }
 
-
         [HttpPost("ExtractColumns")]
         public async Task<IActionResult> ExtractColumns(int doctype, string indoc)
         {
@@ -129,7 +136,7 @@ namespace DocuBot_Api.Controllers
                 {
                     await connection.OpenAsync();
 
-                    using (SqlCommand command = new SqlCommand("usp_descriptiondetails", connection))
+                    using (SqlCommand command = new SqlCommand("usp_SinglHTMPageTBL", connection))
                     {
                         command.CommandType = CommandType.StoredProcedure;
                         command.Parameters.AddWithValue("@doctype", doctype);
@@ -137,22 +144,35 @@ namespace DocuBot_Api.Controllers
 
                         using (SqlDataReader reader = await command.ExecuteReaderAsync())
                         {
-                            var resultData = new List<Dictionary<string, string>>(); // Create a list to hold the extracted data
-
-                            while (await reader.ReadAsync())
+                            // Extract the first row as keys
+                            if (await reader.ReadAsync())
                             {
-                                var dataRow = new Dictionary<string, string>();
-                                for (int i = 1; i <= 5; i++) // Extract col1 to col5
+                                var keys = new List<string>();
+                                for (int i = 1; i <= 7; i++)
                                 {
-                                    dataRow[$"col{i}"] = reader[$"col{i}"].ToString();
+                                    keys.Add(reader[$"col{i}"].ToString().Trim());
                                 }
-                                resultData.Add(dataRow);
-                            }
 
-                            return Ok(resultData); // Return the extracted data as JSON
+                                var resultData = new List<Dictionary<string, string>>();
+
+                                while (await reader.ReadAsync())
+                                {
+                                    var dataRow = new Dictionary<string, string>();
+                                    for (int i = 1; i <= 7; i++)
+                                    {
+                                        dataRow[keys[i - 1]] = reader[$"col{i}"].ToString().Trim();
+                                    }
+                                    resultData.Add(dataRow);
+                                }
+
+                                return Ok(resultData); // Return the extracted data as JSON with keys from the first row
+                            }
                         }
                     }
                 }
+
+                // If the first row is not found, return an appropriate response.
+                return NotFound("No data found.");
             }
             catch (Exception ex)
             {
@@ -161,7 +181,45 @@ namespace DocuBot_Api.Controllers
         }
 
 
-    }
 
+
+
+
+        [HttpPost]
+        public IActionResult ConvertToHtml(IFormFile pdfFile)
+        {
+            try
+            {
+                if (pdfFile == null || pdfFile.Length == 0)
+                {
+                    return BadRequest("No file uploaded.");
+                }
+
+                var pdfFileName = Guid.NewGuid() + Path.GetExtension(pdfFile.FileName);
+                var pdfFilePath = Path.Combine(OutputDirectory, pdfFileName);
+                var htmlFileName = Path.ChangeExtension(pdfFileName, ".html");
+                var htmlFilePath = Path.Combine(OutputDirectory, htmlFileName);
+
+                using (var stream = new FileStream(pdfFilePath, FileMode.Create))
+                {
+                    pdfFile.CopyTo(stream);
+                }
+
+                // Perform PDF to HTML conversion using PdfSharpCore
+                using (PdfDocument pdfDocument = PdfReader.Open(pdfFilePath, PdfDocumentOpenMode.Import))
+                {
+                    pdfDocument.Save(htmlFilePath);
+                }
+
+                return Ok($"PDF converted to HTML and saved: {htmlFilePath}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Conversion error: {ex.Message}");
+            }
+        }
+    }
 }
+
+
 
