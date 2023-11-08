@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
+
 builder.Services.AddControllers();
 builder.Services.AddDbContext<DemoDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("myconn")));
 
@@ -27,7 +28,12 @@ builder.Services.AddCors(options =>
 });
 
 
+
+
+
+
 var app = builder.Build();
+app.UsePathBase(new PathString("/docubot"));
 
 
 
