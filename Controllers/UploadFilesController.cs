@@ -11,6 +11,8 @@ using PdfSharpCore.Pdf;
 using System.Data;
 
 using System.IO.Compression;
+using System.Text;
+using Newtonsoft.Json;
 
 namespace DocuBot_Api.Controllers
 {
@@ -27,10 +29,10 @@ namespace DocuBot_Api.Controllers
             _configuration = configuration;
 
 
-            
+
         }
 
-        
+
 
         [HttpPost("ProcessDocument")]
         public async Task<IActionResult> ProcessDocument(string refDoc1)
@@ -65,8 +67,8 @@ namespace DocuBot_Api.Controllers
                     }
                 }
 
-                return Ok( new { Message = "Found in Main find", ReturnValue = returnValue, doc = refDoc1 });
-               // Return the return value as JSON
+                return Ok(new { Message = "Found in Main find", ReturnValue = returnValue, doc = refDoc1 });
+                // Return the return value as JSON
             }
             catch (Exception ex)
             {
@@ -185,41 +187,89 @@ namespace DocuBot_Api.Controllers
 
 
 
-        [HttpPost]
-        public IActionResult ConvertToHtml(IFormFile pdfFile)
-        {
-            try
-            {
-                if (pdfFile == null || pdfFile.Length == 0)
+        //[HttpPost]
+        //public IActionResult ConvertToHtml(IFormFile pdfFile)
+        //{
+        //    try
+        //    {
+        //        if (pdfFile == null || pdfFile.Length == 0)
+        //        {
+        //            return BadRequest("No file uploaded.");
+        //        }
+
+        //        var pdfFileName = Guid.NewGuid() + Path.GetExtension(pdfFile.FileName);
+        //        var pdfFilePath = Path.Combine(OutputDirectory, pdfFileName);
+        //        var htmlFileName = Path.ChangeExtension(pdfFileName, ".html");
+        //        var htmlFilePath = Path.Combine(OutputDirectory, htmlFileName);
+
+        //        using (var stream = new FileStream(pdfFilePath, FileMode.Create))
+        //        {
+        //            pdfFile.CopyTo(stream);
+        //        }
+
+        //        // Perform PDF to HTML conversion using PdfSharpCore
+        //        using (PdfDocument pdfDocument = PdfReader.Open(pdfFilePath, PdfDocumentOpenMode.Import))
+        //        {
+        //            pdfDocument.Save(htmlFilePath);
+        //        }
+
+        //        return Ok($"PDF converted to HTML and saved: {htmlFilePath}");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, $"Conversion error: {ex.Message}");
+        //    }
+        //}
+
+
+       
+                [HttpPost("UploadPdf")]
+                public async Task<ActionResult> UploadPdf(IFormFile file)
                 {
-                    return BadRequest("No file uploaded.");
+                    if (file != null && file.Length > 0)
+                    {
+                string url = "https://demo.botaiml.com/cnvrt/convert/pdf";
+
+                        try
+                        {
+                            using var client = new HttpClient
+                            {
+                                BaseAddress = new Uri(url)
+                            };
+
+                            using var content = new MultipartFormDataContent();
+                            content.Add(new StreamContent(file.OpenReadStream()), "file", file.FileName);
+
+                            var response = await client.PostAsync(url, content);
+                            var responseContent = await response.Content.ReadAsStringAsync();
+
+                            if (response.IsSuccessStatusCode)
+                            {
+                                // Deserialize the JSON response from the Python API.
+                                var result = JsonConvert.DeserializeObject<ApiResponse>(responseContent);
+                                return Ok(result);
+                            }
+                            else
+                            {
+                                return BadRequest("Bad request to Python API");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            return StatusCode(500, ex.Message);
+                        }
+                    }
+                    else
+                    {
+                        return BadRequest("Invalid PDF file.");
+                    }
                 }
-
-                var pdfFileName = Guid.NewGuid() + Path.GetExtension(pdfFile.FileName);
-                var pdfFilePath = Path.Combine(OutputDirectory, pdfFileName);
-                var htmlFileName = Path.ChangeExtension(pdfFileName, ".html");
-                var htmlFilePath = Path.Combine(OutputDirectory, htmlFileName);
-
-                using (var stream = new FileStream(pdfFilePath, FileMode.Create))
-                {
-                    pdfFile.CopyTo(stream);
-                }
-
-                // Perform PDF to HTML conversion using PdfSharpCore
-                using (PdfDocument pdfDocument = PdfReader.Open(pdfFilePath, PdfDocumentOpenMode.Import))
-                {
-                    pdfDocument.Save(htmlFilePath);
-                }
-
-                return Ok($"PDF converted to HTML and saved: {htmlFilePath}");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Conversion error: {ex.Message}");
-            }
-        }
     }
+
+
 }
+    
+
 
 
 
