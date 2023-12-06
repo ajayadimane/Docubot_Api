@@ -1,6 +1,7 @@
-using DocuBot_Api.Dbcontext;
+using DocuBot_Api.Context;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using Irony.Ast;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,7 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddControllers();
-builder.Services.AddDbContext<DemoDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("myconn")));
+builder.Services.AddDbContext<DocubotDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("myconn")));
+
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["ApiHost:BaseUrl"]), Timeout = TimeSpan.FromMinutes(30) });
 
 builder.Services.AddConnections();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -21,7 +24,7 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(builder =>
     {
         builder
-            .WithOrigins("http://localhost:3000") // Replace with your React app's URL
+            .WithOrigins("*") // Replace with your React app's URL
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -44,12 +47,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-//if (app.Environment.IsProduction())
+//if (app.Environment.isproduction())
 //{
-//    app.UseSwagger();
-//    app.UseSwaggerUI();
+//    app.useswagger();
+//    app.useswaggerui();
 //}
-//app.UseCors();
+
+
+app.UseCors();
 
 app.UseHttpsRedirection();
 
