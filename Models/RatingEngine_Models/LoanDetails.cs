@@ -1,4 +1,6 @@
-﻿namespace DocuBot_Api.Models.RatingEngine_Models
+﻿using System.Globalization;
+
+namespace DocuBot_Api.Models.RatingEngine_Models
 {
     public partial class LoanDetails
     {
@@ -10,7 +12,10 @@
         public int Assetval { get; set; }
         public int Tenor { get; set; }
         public int? Appid { get; set; }
-        public DateTime? Approvaldt { get; set; }
+
+
+        public DateTime? Approvaldate { get; set; }
+
         public DateTime? Disbdate { get; set; }
         public string? Status { get; set; }
         public int? Owncontrib { get; set; }

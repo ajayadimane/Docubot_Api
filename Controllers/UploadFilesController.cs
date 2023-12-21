@@ -15,6 +15,10 @@ using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Globalization;
 using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Office2010.Excel;
+using DocuBot_Api.Models.RatingEngine_Models;
+using DocumentFormat.OpenXml.Office2010.Word;
+using Azure.Core;
 
 namespace DocuBot_Api.Controllers
 {
@@ -24,7 +28,7 @@ namespace DocuBot_Api.Controllers
     {
         private readonly IConfiguration _configuration;
         private static readonly string OutputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "outputfiles");
-
+ 
 
         public UploadFilesController(IConfiguration configuration)
         {
@@ -78,51 +82,102 @@ namespace DocuBot_Api.Controllers
             }
         }
 
+
         [HttpPost("keyvalue")]
-        public async Task<IActionResult> NewDocumentProcessing(int doctype, string indoc)
+        public async Task<IActionResult> NewDocumentProcessing(ExtractionRequest request)
         {
             try
             {
-                string connectionString = _configuration.GetConnectionString("myconn");
+                int DocumentID = request.DocumentId;
 
-                using (SqlConnection connection = new SqlConnection(connectionString))
+                IActionResult getDocNameResult = await GetDocNameById(DocumentID);
+
+                if (getDocNameResult is OkObjectResult okResult && okResult.Value is string docname)
                 {
-                    await connection.OpenAsync();
+                    // Now, use the retrieved docname as indoc in the stored procedure
+                    int doctype = 2; // Set doctype as 2
 
-                    using (SqlCommand command = new SqlCommand("usp_SinglHTMPageKVal", connection))
+
+                    string connectionString = _configuration.GetConnectionString("myconn");
+
+                    using (SqlConnection connection = new SqlConnection(connectionString))
                     {
-                        command.CommandType = CommandType.StoredProcedure;
-                        command.Parameters.AddWithValue("@doctype", doctype);
-                        command.Parameters.AddWithValue("@indoc", indoc);
+                        await connection.OpenAsync();
 
-                        using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                        using (SqlCommand command = new SqlCommand("usp_SinglHTMPageKVal", connection))
                         {
-                            var resultData = new Dictionary<string, string>(); // Create a list to hold the extracted data
-                            string currentKey = null;
+                            command.CommandType = CommandType.StoredProcedure;
+                            command.Parameters.AddWithValue("@doctype", doctype);
+                            command.Parameters.AddWithValue("@indoc", docname);
 
-                            while (await reader.ReadAsync())
+                            using (SqlDataReader reader = await command.ExecuteReaderAsync())
                             {
-                                var key = reader["k1"].ToString();
-                                var value = reader["kval1"].ToString();
+                                var resultData = new Dictionary<string, string>(); // Create a list to hold the extracted data
+                                string currentKey = null;
 
-                                if (!string.IsNullOrEmpty(key))
+                                while (await reader.ReadAsync())
                                 {
-                                    // If a key is present, store it in the dictionary.
-                                    resultData[key] = value;
-                                    currentKey = key;
+                                    var key = reader["k1"].ToString().Trim();
+                                    var value = reader["kval1"].ToString().Trim();
+
+                                    if (!string.IsNullOrEmpty(key))
+                                    {
+                                        // If a key is present, store it in the dictionary.
+                                        resultData[key] = value;
+                                        currentKey = key;
+                                    }
+                                    else if (!string.IsNullOrEmpty(currentKey))
+                                    {
+                                        // If no key is present, append the value to the previous key's value.
+                                        resultData[currentKey] += " " + value;
+                                    }
                                 }
-                                else if (!string.IsNullOrEmpty(currentKey))
+
+                                // Create a new dictionary for the formatted result
+                                var formattedResult = new Dictionary<string, string>();
+
+                                // Add other key-value pairs from the original resultData to the formattedResult
+                                foreach (var kvp in resultData)
                                 {
-                                    // If no key is present, append the value to the previous key's value.
-                                    resultData[currentKey] += " " + value;
+                                    // Skip the "Account Balance as on" key, as it has already been processed
+                                    if (kvp.Key != "Account Balance as on")
+                                    {
+                                        formattedResult[kvp.Key] = kvp.Value;
+                                    }
                                 }
+
+                                // Check if "Account Balance as on" key is present in the resultData
+                                if (resultData.ContainsKey("Account Balance as on"))
+                                {
+                                    // Extract the value for "Account Balance as on "
+                                    var accountBalanceOnKey = "Account Balance as on";
+                                    var accountBalanceOnValue = resultData[accountBalanceOnKey];
+
+                                    // Split the value into two parts based on the ':' separator
+                                    var parts = accountBalanceOnValue.Split(':');
+                                    if (parts.Length == 2)
+                                    {
+                                        // Trim and format the parts
+                                        var datePart = parts[0].Trim();
+                                        var balancePart = parts[1].Trim();
+
+                                        // Add the formatted parts to the new dictionary
+                                        formattedResult["Account Balance Date"] = datePart;
+                                        formattedResult["Account Balance"] = balancePart;
+                                    }
+                                }
+                                ConvertDatesToDDMMYYYY(formattedResult);
+                                // Return the formatted result as JSON
+                                return Ok(formattedResult);
                             }
-                            ConvertDateFormate(resultData);
-
-                            return Ok(resultData); // Return the extracted data as JSON
-
                         }
                     }
+                }
+
+
+                else
+                {
+                    return NotFound("No data found.");
                 }
             }
             catch (Exception ex)
@@ -130,6 +185,8 @@ namespace DocuBot_Api.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
+
 
         private void ConvertDateFormate(Dictionary<string, string> resultData)
         {
@@ -204,7 +261,7 @@ namespace DocuBot_Api.Controllers
         ///mnt/Backup/CVision/docubot-api/DocuBot/static/results/html/Bank Statement(1).html
 
         [HttpPost("ExtractColumns")]
-        public async Task<IActionResult> ExtractColumns(int doctype, string indoc)
+        public async Task<IActionResult> ExtractColumns(int lfid)
         {
             try
             {
@@ -217,8 +274,8 @@ namespace DocuBot_Api.Controllers
                     using (SqlCommand command = new SqlCommand("usp_SinglHTMPageTBL", connection))
                     {
                         command.CommandType = CommandType.StoredProcedure;
-                        command.Parameters.AddWithValue("@doctype", doctype);
-                        command.Parameters.AddWithValue("@indoc", indoc);
+                        command.Parameters.AddWithValue("@lfid", lfid);
+
 
                         using (SqlDataReader reader = await command.ExecuteReaderAsync())
                         {
@@ -250,17 +307,19 @@ namespace DocuBot_Api.Controllers
                                 return Ok(resultData); // Return the extracted data as JSON with keys from the first row
                             }
                         }
+                        
                     }
                 }
-
-                // If the first row is not found, return an appropriate response.
-                return NotFound("No data found.");
+                return Ok("data not found");
             }
+            
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
+  
 
         // Helper method to convert dates to "DD-MM-YYYY" format
         // Helper method to convert dates to "DD/MM/YYYY" format
@@ -280,84 +339,177 @@ namespace DocuBot_Api.Controllers
         }
 
 
-
-
-
-
-
-        //[HttpPost]
-        //public IActionResult ConvertToHtml(IFormFile pdfFile)
-        //{
-        //    try
-        //    {
-        //        if (pdfFile == null || pdfFile.Length == 0)
-        //        {
-        //            return BadRequest("No file uploaded.");
-        //        }
-
-        //        var pdfFileName = Guid.NewGuid() + Path.GetExtension(pdfFile.FileName);
-        //        var pdfFilePath = Path.Combine(OutputDirectory, pdfFileName);
-        //        var htmlFileName = Path.ChangeExtension(pdfFileName, ".html");
-        //        var htmlFilePath = Path.Combine(OutputDirectory, htmlFileName);
-
-        //        using (var stream = new FileStream(pdfFilePath, FileMode.Create))
-        //        {
-        //            pdfFile.CopyTo(stream);
-        //        }
-
-        //        // Perform PDF to HTML conversion using PdfSharpCore
-        //        using (PdfDocument pdfDocument = PdfReader.Open(pdfFilePath, PdfDocumentOpenMode.Import))
-        //        {
-        //            pdfDocument.Save(htmlFilePath);
-        //        }
-
-        //        return Ok($"PDF converted to HTML and saved: {htmlFilePath}");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"Conversion error: {ex.Message}");
-        //    }
-        //}
-
-
-
-        [HttpPost("UploadPdf")]
-        public async Task<ActionResult> UploadPdf(IFormFile file)
+        [HttpGet("GetDocNameById/{DocumentId}")]
+        public async Task<IActionResult> GetDocNameById(int DocumentId)
         {
-            if (file != null && file.Length > 0)
+            try
             {
-                string url = "https://demo.botaiml.com/cnvrt/con  vert/pdf";
+                string connectionString = _configuration.GetConnectionString("myconn");
 
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+
+                    using (SqlCommand command = new SqlCommand("SELECT [docname] FROM [dbo].[LoadedFiles] WHERE [id] = @id", connection))
+                    {
+                        command.Parameters.AddWithValue("@id", DocumentId);
+
+                        object result = await command.ExecuteScalarAsync();
+
+                        if (result != null)
+                        {
+                            string docname = result.ToString();
+                            return Ok(docname);
+                        }
+                        else
+                        {
+                            return NotFound($"No document found for the provided id: {DocumentId}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+
+        private string GenerateFilePath(string docname, int doctypeid, string purpose)
+        {
+            // Customize this function to generate the desired file path based on input parameters
+            // For example, you can concatenate docname, doctypeid, and purpose in the path
+            string fileName = $"{docname}_type{doctypeid}_purpose_{purpose}.html";
+
+            // Assuming you want to save in a folder named "GeneratedFiles" within the current working directory
+            string filePath = Path.Combine(Directory.GetCurrentDirectory(), "GeneratedFiles", fileName);
+
+            return filePath;
+        }
+
+
+        [HttpPost("UploadDocument")]
+        public async Task<ActionResult> UploadPdf(IFormFileCollection files, string loanaccno)
+        {
+            if (files != null && files.Count > 0)
+            {
                 try
                 {
-                    using var client = new HttpClient
+                    // Validate the loanaccno parameter as needed
+
+                    // Get the working directory of the application
+                    string workingDirectory = Directory.GetCurrentDirectory();
+
+                    // Create a folder for the loanaccno in the UploadedFiles directory
+                    string loanaccnoFolder = Path.Combine(workingDirectory, "UploadedFiles", loanaccno);
+                    Directory.CreateDirectory(loanaccnoFolder);
+
+                    // List to store results for each file
+                    var results = new List<object>();
+
+                    // Iterate through each uploaded file
+                    for (int i = 0; i < files.Count; i++)
                     {
-                        BaseAddress = new Uri(url)
-                    };
-                    client.Timeout = TimeSpan.FromMinutes(20);
+                        var file = files[i];
 
+                        // Define input file name with loanaccno and index
+                        string inputFileName = $"{loanaccno}_file{i + 1}{Path.GetExtension(file.FileName)}";
 
+                        // Save the input file in the loanaccno folder
+                        string inputFilepath = Path.Combine(loanaccnoFolder, inputFileName);
+                        using (var inputStream = new FileStream(inputFilepath, FileMode.Create))
+                        {
+                            await file.CopyToAsync(inputStream);
+                        }
 
-                    using var content = new MultipartFormDataContent();
-                    content.Add(new StreamContent(file.OpenReadStream()), "file", file.FileName);
+                        // Define the API endpoint URL
+                        string apiUrl = "https://demo.botaiml.com/cnvrt/convert/pdf";
 
-                    var response = await client.PostAsync(url, content);
-                    var responseContent = await response.Content.ReadAsStringAsync();
+                        using var client = new HttpClient
+                        {
+                            BaseAddress = new Uri(apiUrl)
+                        };
+                        client.Timeout = TimeSpan.FromMinutes(20);
 
+                        using var content = new MultipartFormDataContent();
+                        content.Add(new StreamContent(file.OpenReadStream()), "file", inputFileName);
+                        content.Add(new StringContent(loanaccno), "loanaccno");
 
-                    if (response.IsSuccessStatusCode)
-                    {
+                        var response = await client.PostAsync(apiUrl, content);
+                        var responseContent = await response.Content.ReadAsStringAsync();
 
-                        // Deserialize the JSON response from the Python API.
-                        var result = JsonConvert.DeserializeObject<ApiResponse>(responseContent);
-                        result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            // Deserialize the JSON response from the Python API
+                            var result = JsonConvert.DeserializeObject<ApiResponse>(responseContent);
+                            result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
 
-                        return Ok(result);
+                            try
+                            {
+                                string connectionString = _configuration.GetConnectionString("myconn");
+
+                                using (SqlConnection connection = new SqlConnection(connectionString))
+                                {
+                                    await connection.OpenAsync();
+
+                                    using (SqlCommand command = new SqlCommand("usp_uploadDoc", connection))
+                                    {
+                                        command.CommandType = CommandType.StoredProcedure;
+                                        command.Parameters.AddWithValue("@loanid", loanaccno);
+                                        command.Parameters.AddWithValue("@indoc", result.html_path);
+
+                                        using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                                        {
+                                            if (await reader.ReadAsync())
+                                            {
+                                                // Retrieve the docid from the result
+                                                int docid = reader.GetInt32(reader.GetOrdinal("lfid"));
+
+                                                // Other code to extract additional information if needed
+
+                                                return Ok(new
+                                                {
+                                                    Message = "Conversion successful.",
+                                                    LoanaccNo = loanaccno,
+                                                    DocumentId = docid,
+                                                    HtmlFilePath = result.html_path
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // If the stored procedure did not return a result, return a 404 Not Found
+                                return NotFound("No data found for the provided parameters.");
+                            }
+                            catch (Exception ex)
+                            {
+                                return StatusCode(500, ex.Message);
+                            }
+
+                            // Add the result to the list
+                            //results.Add(new
+                            //{
+                            //    Message = "Conversion successful.",
+                            //    LoanaccNo = loanaccno,
+                            //    Lfid = storedProcedureResult.Lfid,
+                            //    HtmlFilePath = result.html_path
+                            //});
+                        }
+                        else
+                        {
+                            // Add an error result to the list
+                            results.Add(new
+                            {
+                                Message = "Error in conversion.",
+                                LoanaccNo = loanaccno
+                                // Add other error details as needed
+                            });
+                        }
                     }
-                    else
-                    {
-                        return BadRequest("Bad request to Python API");
-                    }
+
+                    // Return the results as JSON
+                    return Ok(results);
                 }
                 catch (Exception ex)
                 {
@@ -366,9 +518,64 @@ namespace DocuBot_Api.Controllers
             }
             else
             {
-                return BadRequest("Invalid PDF file.");
+                return BadRequest("No files uploaded.");
             }
         }
+
+
+      
+
+
+
+
+        //[HttpPost("UploadPdf")]
+        //public async Task<ActionResult> UploadPdf(IFormFile file)
+        //{
+        //    if (file != null && file.Length > 0)
+        //    {
+        //        string url = "https://demo.botaiml.com/cnvrt/convert/pdf";
+
+        //        try
+        //        {
+        //            using var client = new HttpClient
+        //            {
+        //                BaseAddress = new Uri(url)
+        //            };
+        //            client.Timeout = TimeSpan.FromMinutes(20);
+
+
+
+        //            using var content = new MultipartFormDataContent();
+        //            content.Add(new StreamContent(file.OpenReadStream()), "file", file.FileName);
+
+        //            var response = await client.PostAsync(url, content);
+        //            var responseContent = await response.Content.ReadAsStringAsync();
+
+
+        //            if (response.IsSuccessStatusCode)
+        //            {
+
+        //                // Deserialize the JSON response from the Python API.
+        //                var result = JsonConvert.DeserializeObject<ApiResponse>(responseContent);
+        //                result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
+
+        //                return Ok(result);
+        //            }
+        //            else
+        //            {
+        //                return BadRequest("Bad request to Python API");
+        //            }
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(500, ex.Message);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        return BadRequest("Invalid PDF file.");
+        //    }
+        //}
 
         [HttpPost]
         public IActionResult ConvertPdfToHtml(IFormFile file)
@@ -464,64 +671,6 @@ namespace DocuBot_Api.Controllers
 
             Directory.CreateDirectory(folderPath);
         }
-
-
-        [HttpPost("UpdateAndRetrieveLoanDetails")]
-        public async Task<IActionResult> UpdateAndRetrieveLoanDetails(int appId)
-        {
-            try
-            {
-                string connectionString = _configuration.GetConnectionString("myconn");
-
-                using (SqlConnection connection = new SqlConnection(connectionString))
-                {
-                    await connection.OpenAsync();
-
-                    using (SqlCommand command = new SqlCommand("usp_rating", connection))
-                    {
-                        command.CommandType = CommandType.StoredProcedure;
-                        command.Parameters.AddWithValue("@appId", appId);
-
-                        // Execute the stored procedure (assumed to perform the update)
-                        await command.ExecuteNonQueryAsync();
-                    }
-
-                    // Retrieve the updated loan details based on appId
-                    using (SqlCommand retrieveCommand = new SqlCommand("SELECT * FROM LoanDetails WHERE AppId = @appId", connection))
-                    {
-                        retrieveCommand.Parameters.AddWithValue("@appId", appId);
-
-                        using (SqlDataReader reader = await retrieveCommand.ExecuteReaderAsync())
-                        {
-                            var resultData = new List<Dictionary<string, string>>();
-
-                            while (await reader.ReadAsync())
-                            {
-                                var dataRow = new Dictionary<string, string>();
-
-                                // Assuming the columns in LoanDetails table are named col1, col2, ..., colN
-                                for (int i = 1; i <= reader.FieldCount; i++)
-                                {
-                                    dataRow[reader.GetName(i - 1)] = reader[i - 1].ToString().Trim();
-                                }
-
-                                resultData.Add(dataRow);
-                            }
-
-                            return Ok(resultData); // Return the updated loan details as JSON
-                        }
-                    }
-                }
-
-                // If no data is found, return an appropriate response.
-                return NotFound("Loan details not found.");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
 
 
     }

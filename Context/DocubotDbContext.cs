@@ -44,14 +44,15 @@ namespace DocuBot_Api.Context
                     .HasMaxLength(20)
                     .IsUnicode(false)
                     .HasColumnName("applno");
-                entity.Property(e => e.Approvaldt).HasColumnType("date").HasColumnName("approvaldt");
+                entity.Property(e => e.Approvaldate).HasColumnType("date").HasColumnName("approvaldate");
                 entity.Property(e => e.Assetval).HasColumnName("assetval");
                 entity.Property(e => e.Bounced).HasColumnName("bounced");
+                entity.Property(e => e.Income).HasColumnName("income");
                 entity.Property(e => e.Ccbal).HasColumnName("ccbal");
                 entity.Property(e => e.Rating).HasColumnName("rating");
                 entity.Property(e => e.Dependents).HasColumnName("dependents");
                 entity.Property(e => e.Expenses).HasColumnName("expenses");
-                entity.Property(e => e.Emistartdate).HasColumnName("emistart");
+                entity.Property(e => e.Emistartdate).HasColumnName("emistartdate");
                 entity.Property(e => e.RatingCalc).HasColumnName("RatingCalc");
                 // Other properties...
 

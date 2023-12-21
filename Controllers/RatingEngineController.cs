@@ -51,7 +51,7 @@ namespace DocuBot_Api.Controllers
                             lndet.Assetval,
                             lndet.Tenor,
                             lndet.Appid,
-                            lndet.Approvaldt,
+                            lndet.Approvaldate,
                             lndet.Disbdate,
                             lndet.Status,
                             lndet.Owncontrib,
@@ -178,9 +178,36 @@ namespace DocuBot_Api.Controllers
 
                         await command.ExecuteNonQueryAsync();
                     }
-                }
 
-                LoanDetails lndet = db.GetLoanDetails(requestforrating.app);
+                    using (SqlCommand secondCommand = new SqlCommand("USP_GetLoanParam", connection))
+                    {
+                        secondCommand.CommandType = CommandType.StoredProcedure;
+                        secondCommand.Parameters.AddWithValue("@loancode", requestforrating.app);
+
+                        List<LoanSchedule> loanSchedule = new List<LoanSchedule>();
+
+                        // Execute the second stored procedure
+                        using (SqlDataReader secondReader = await secondCommand.ExecuteReaderAsync())
+                        {
+                            while (await secondReader.ReadAsync())
+                            {
+                                LoanSchedule scheduleItem = new LoanSchedule
+                                {
+                                    Id = secondReader.GetInt32(secondReader.GetOrdinal("id")),
+                                    Period = secondReader.GetInt32(secondReader.GetOrdinal("period")),
+                                    PayDate = secondReader.GetDateTime(secondReader.GetOrdinal("paydate")),
+                                    Payment = secondReader.GetDecimal(secondReader.GetOrdinal("payment")),
+                                    Current_Balance = secondReader.GetDecimal(secondReader.GetOrdinal("current_balance")),
+                                    Interest = secondReader.GetDecimal(secondReader.GetOrdinal("interest")),
+                                    Principal = secondReader.GetDecimal(secondReader.GetOrdinal("principal"))
+                                };
+
+                                loanSchedule.Add(scheduleItem);
+                            }
+                        }
+
+
+                        LoanDetails lndet = db.GetLoanDetails(requestforrating.app);
                 if (lndet != null)
                 {
                     var ratingCalcObject = JsonConvert.DeserializeObject<RatingCalculationContainer>(lndet.RatingCalc);
@@ -197,7 +224,7 @@ namespace DocuBot_Api.Controllers
                             lndet.Assetval,
                             lndet.Tenor,
                             lndet.Appid,
-                            lndet.Approvaldt,
+                            lndet.Approvaldate,
                             lndet.Disbdate,
                             lndet.Status,
                             lndet.Owncontrib,
@@ -227,65 +254,25 @@ namespace DocuBot_Api.Controllers
                             // Include other properties as needed
                         },
 
+                        scheduleHeading = "Loan Schedule",
+
+                        loanSchedule,
+
                         message = "Loan schedule and details retrieved Successfully",
                         status = "Success"
                     });
-                }
-            
 
-                return Ok("Rating calculation executed successfully.");
+                        }
+
+                        return Ok("Rating calculation executed successfully.");
+                    }
+                }
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-
-        //[HttpPost("GetLoanDetails")]
-        //public async Task<IActionResult> GetLoanDetails(int appId)
-        //{
-        //    try
-        //    {
-        //        string connectionString = _configuration.GetConnectionString("myconn");
-
-        //        using (SqlConnection connection = new SqlConnection(connectionString))
-        //        {
-        //            await connection.OpenAsync();
-
-        //            using (SqlCommand command = new SqlCommand("SELECT * FROM LoanDetails WHERE AppId = @appId", connection))
-        //            {
-        //                command.Parameters.AddWithValue("@appId", appId);
-
-        //                using (SqlDataReader reader = await command.ExecuteReaderAsync())
-        //                {
-        //                    var resultData = new List<Dictionary<string, string>>();
-
-        //                    while (await reader.ReadAsync())
-        //                    {
-        //                        var dataRow = new Dictionary<string, string>();
-
-        //                        // Assuming the columns in LoanDetails table are named col1, col2, ..., colN
-        //                        for (int i = 1; i <= reader.FieldCount; i++)
-        //                        {
-        //                            dataRow[reader.GetName(i - 1)] = reader[i - 1].ToString().Trim();
-        //                        }
-
-        //                        resultData.Add(dataRow);
-        //                    }
-
-        //                    return Ok(resultData); // Return the loan details as JSON
-        //                }
-        //            }
-        //        }
-
-        //        // If no data is found, return an appropriate response.
-        //        return NotFound("Loan details not found.");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"Internal server error: {ex.Message}");
-        //    }
-        //}
 
     }
 }

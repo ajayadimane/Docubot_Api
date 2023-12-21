@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 
 namespace DocuBot_Api.Models.RatingEngine_Models
 {
@@ -27,6 +28,14 @@ namespace DocuBot_Api.Models.RatingEngine_Models
         public string LoanApplNo { get; set; }
     }
 
+
+    public class ExtractionRequest
+    {
+        public int DocumentId { get; set; }
+    }
+
+ 
+
     public class LoanSchedule
     {
        
@@ -49,7 +58,9 @@ namespace DocuBot_Api.Models.RatingEngine_Models
         public int Assetval { get; set; }
         public int Tenor { get; set; }
         public int? Appid { get; set; }
-        public DateTime? Approvaldt { get; set; }
+           
+        public DateTime? Approvaldate { get; set; }
+
         public DateTime? Disbdate { get; set; }
         public string? Status { get; set; }
         public int? Owncontrib { get; set; }
@@ -59,20 +70,20 @@ namespace DocuBot_Api.Models.RatingEngine_Models
         public int? Income { get; set; }
         public int? Permth { get; set; }
         public int? Taxpaid { get; set; }
-        public decimal? Rir { get; set; }
+        //public decimal? Rir { get; set; }
         public int? Othemi { get; set; }
         public decimal? Lvr { get; set; }
         public int? Cibil { get; set; }
-        public int? Bounced { get; set; }
-        public int? Delayed { get; set; }
+        //public int? Bounced { get; set; }
+        //public int? Delayed { get; set; }
         public string? Custtype { get; set; }
         public int? Ccbal { get; set; }
 
         public DateTime? Emistartdate { get; set; }
-        public int? Rating { get; set; }
-        public int? Dependents { get; set; }
-        public int? Expenses { get; set; }
-        public string? RatingCalc { get; set; }
+        //public int? Rating { get; set; }
+        //public int? Dependents { get; set; }
+        //public int? Expenses { get; set; }
+       // public string? RatingCalc { get; set; }
 
 
         //public int? Sanctionedamt { get; set; }
