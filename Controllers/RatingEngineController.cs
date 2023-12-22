@@ -33,7 +33,7 @@ namespace DocuBot_Api.Controllers
         {
             try
             {
-                LoanDetails lndet = db.GetLoanDetails(loanapplno.LoanApplNo);
+                LoanDetails lndet = db.GetLoanDetails(loanapplno.ApplNo);
 
                 if (lndet != null)
                 {
@@ -173,8 +173,8 @@ namespace DocuBot_Api.Controllers
                     using (SqlCommand command = new SqlCommand("usp_rating", connection))
                     {
                         command.CommandType = CommandType.StoredProcedure;
-                        command.Parameters.AddWithValue("@lfid", requestforrating.lfid);
-                        command.Parameters.AddWithValue("@app", requestforrating.app);
+                        command.Parameters.AddWithValue("@lfid", requestforrating.DocumentId);
+                        command.Parameters.AddWithValue("@app", requestforrating.ApplNo);
 
                         await command.ExecuteNonQueryAsync();
                     }
@@ -182,7 +182,7 @@ namespace DocuBot_Api.Controllers
                     using (SqlCommand secondCommand = new SqlCommand("USP_GetLoanParam", connection))
                     {
                         secondCommand.CommandType = CommandType.StoredProcedure;
-                        secondCommand.Parameters.AddWithValue("@loancode", requestforrating.app);
+                        secondCommand.Parameters.AddWithValue("@loancode", requestforrating.ApplNo);
 
                         List<LoanSchedule> loanSchedule = new List<LoanSchedule>();
 
@@ -207,7 +207,7 @@ namespace DocuBot_Api.Controllers
                         }
 
 
-                        LoanDetails lndet = db.GetLoanDetails(requestforrating.app);
+                        LoanDetails lndet = db.GetLoanDetails(requestforrating.ApplNo);
                 if (lndet != null)
                 {
                     var ratingCalcObject = JsonConvert.DeserializeObject<RatingCalculationContainer>(lndet.RatingCalc);

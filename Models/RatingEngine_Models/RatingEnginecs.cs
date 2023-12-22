@@ -10,8 +10,8 @@ namespace DocuBot_Api.Models.RatingEngine_Models
 
     public class Requestforrating
     {
-        public int lfid { get; set; }
-        public string app { get; set; }
+        public int DocumentId { get; set; }
+        public string ApplNo { get; set; }
     }
 
   
@@ -25,7 +25,7 @@ namespace DocuBot_Api.Models.RatingEngine_Models
 
     public class LoanApplicationNo
     {
-        public string LoanApplNo { get; set; }
+        public string ApplNo { get; set; }
     }
 
 

@@ -261,8 +261,9 @@ namespace DocuBot_Api.Controllers
         ///mnt/Backup/CVision/docubot-api/DocuBot/static/results/html/Bank Statement(1).html
 
         [HttpPost("ExtractColumns")]
-        public async Task<IActionResult> ExtractColumns(int lfid)
+        public async Task<IActionResult> ExtractColumns(ExtractionRequest request)
         {
+            int DocumentID = request.DocumentId;
             try
             {
                 string connectionString = _configuration.GetConnectionString("myconn");
@@ -274,7 +275,7 @@ namespace DocuBot_Api.Controllers
                     using (SqlCommand command = new SqlCommand("usp_SinglHTMPageTBL", connection))
                     {
                         command.CommandType = CommandType.StoredProcedure;
-                        command.Parameters.AddWithValue("@lfid", lfid);
+                        command.Parameters.AddWithValue("@lfid", DocumentID);
 
 
                         using (SqlDataReader reader = await command.ExecuteReaderAsync())
@@ -389,7 +390,7 @@ namespace DocuBot_Api.Controllers
 
 
         [HttpPost("UploadDocument")]
-        public async Task<ActionResult> UploadPdf(IFormFileCollection files, string loanaccno)
+        public async Task<ActionResult> UploadPdf(IFormFileCollection files, string Applno)
         {
             if (files != null && files.Count > 0)
             {
@@ -401,7 +402,7 @@ namespace DocuBot_Api.Controllers
                     string workingDirectory = Directory.GetCurrentDirectory();
 
                     // Create a folder for the loanaccno in the UploadedFiles directory
-                    string loanaccnoFolder = Path.Combine(workingDirectory, "UploadedFiles", loanaccno);
+                    string loanaccnoFolder = Path.Combine(workingDirectory, "UploadedFiles", Applno);
                     Directory.CreateDirectory(loanaccnoFolder);
 
                     // List to store results for each file
@@ -413,7 +414,7 @@ namespace DocuBot_Api.Controllers
                         var file = files[i];
 
                         // Define input file name with loanaccno and index
-                        string inputFileName = $"{loanaccno}_file{i + 1}{Path.GetExtension(file.FileName)}";
+                        string inputFileName = $"{Applno}_file{i + 1}{Path.GetExtension(file.FileName)}";
 
                         // Save the input file in the loanaccno folder
                         string inputFilepath = Path.Combine(loanaccnoFolder, inputFileName);
@@ -433,7 +434,7 @@ namespace DocuBot_Api.Controllers
 
                         using var content = new MultipartFormDataContent();
                         content.Add(new StreamContent(file.OpenReadStream()), "file", inputFileName);
-                        content.Add(new StringContent(loanaccno), "loanaccno");
+                        content.Add(new StringContent(Applno), "loanaccno");
 
                         var response = await client.PostAsync(apiUrl, content);
                         var responseContent = await response.Content.ReadAsStringAsync();
@@ -455,7 +456,7 @@ namespace DocuBot_Api.Controllers
                                     using (SqlCommand command = new SqlCommand("usp_uploadDoc", connection))
                                     {
                                         command.CommandType = CommandType.StoredProcedure;
-                                        command.Parameters.AddWithValue("@loanid", loanaccno);
+                                        command.Parameters.AddWithValue("@loanid", Applno);
                                         command.Parameters.AddWithValue("@indoc", result.html_path);
 
                                         using (SqlDataReader reader = await command.ExecuteReaderAsync())
@@ -470,7 +471,7 @@ namespace DocuBot_Api.Controllers
                                                 return Ok(new
                                                 {
                                                     Message = "Conversion successful.",
-                                                    LoanaccNo = loanaccno,
+                                                    ApplNo = Applno,
                                                     DocumentId = docid,
                                                     HtmlFilePath = result.html_path
                                                 });
@@ -502,7 +503,7 @@ namespace DocuBot_Api.Controllers
                             results.Add(new
                             {
                                 Message = "Error in conversion.",
-                                LoanaccNo = loanaccno
+                                ApplNo = Applno
                                 // Add other error details as needed
                             });
                         }
