@@ -73,11 +73,11 @@ namespace DocuBot_Api.Controllers
                             lndet.Rating,
                             lndet.Dependents,
                             lndet.Expenses,
-                            RatingCalc = new
-                            {
+                           
+                            
                                 // Properly structure the "Rating Calculation" object
-                                RatingCalculation = ratingCalcObject
-                            }
+                              ratingCalcObject
+                            
                             // Include other properties as needed
                         },
                         message = "Loan Details retrieved Successfully",

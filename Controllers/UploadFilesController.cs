@@ -82,15 +82,13 @@ namespace DocuBot_Api.Controllers
             }
         }
 
-
         [HttpPost("keyvalue")]
         public async Task<IActionResult> NewDocumentProcessing(ExtractionRequest request)
         {
             try
             {
                 int DocumentID = request.DocumentId;
-
-                    string connectionString = _configuration.GetConnectionString("myconn");
+                string connectionString = _configuration.GetConnectionString("myconn");
 
                 using (SqlConnection connection = new SqlConnection(connectionString))
                 {
@@ -111,6 +109,9 @@ namespace DocuBot_Api.Controllers
                                 var key = reader["k1"].ToString().Trim();
                                 var value = reader["kval1"].ToString().Trim();
 
+                                // Remove unwanted characters from the value
+                                value = value.Replace("<br>", "").Replace("\t", "").Replace("\n", "").Replace("</body>", "").Replace(" </body_<_-_-/html>","");
+
                                 if (!string.IsNullOrEmpty(key))
                                 {
                                     // If a key is present, store it in the dictionary.
@@ -123,7 +124,6 @@ namespace DocuBot_Api.Controllers
                                     resultData[currentKey] += " " + value;
                                 }
                             }
-
                             // Create a new dictionary for the formatted result
                             var formattedResult = new Dictionary<string, string>();
 
@@ -131,46 +131,56 @@ namespace DocuBot_Api.Controllers
                             foreach (var kvp in resultData)
                             {
                                 // Skip the "Account Balance as on" key, as it has already been processed
-                                if (kvp.Key != "Account Balance as on")
+                                if (kvp.Key != "Account Balance Date")
                                 {
-                                    formattedResult[kvp.Key] = kvp.Value;
+                                    // Check if the key is "Interest Rate"
+                                    if (kvp.Key == "Interest Rate")
+                                    {
+                                        // Include the "Interest Rate" value as is
+                                        formattedResult[kvp.Key] = kvp.Value;
+                                    }
+                                    else
+                                    {
+                                        // Format the date values for other keys
+                                        if (DateTime.TryParse(kvp.Value, out DateTime dateValue))
+                                        {
+                                            formattedResult[kvp.Key] = dateValue.ToString("d MMM yyyy");
+                                        }
+                                        else
+                                        {
+                                            // If it's not a date, include the value as is
+                                            formattedResult[kvp.Key] = kvp.Value;
+                                        }
+                                    }
                                 }
                             }
 
                             // Check if "Account Balance as on" key is present in the resultData
-                            if (resultData.ContainsKey("Account Balance as on"))
+                            if (resultData.ContainsKey("Account Balance Date"))
                             {
                                 // Extract the value for "Account Balance as on "
-                                var accountBalanceOnKey = "Account Balance as on";
-                                var accountBalanceOnValue = resultData[accountBalanceOnKey];
+                                var accountBalanceOnValue = resultData["Account Balance Date"];
 
-                                // Split the value into two parts based on the ':' separator
-                                var parts = accountBalanceOnValue.Split(':');
-                                if (parts.Length == 2)
+                                // Parse and format the date
+                                if (DateTime.TryParse(accountBalanceOnValue, out DateTime balanceDate))
                                 {
-                                    // Trim and format the parts
-                                    var datePart = parts[0].Trim();
-                                    var balancePart = parts[1].Trim();
-
-                                    // Add the formatted parts to the new dictionary
-                                    formattedResult["Account Balance Date"] = datePart;
-                                    formattedResult["Account Balance"] = balancePart;
+                                    // Format the date in the desired format (e.g., "1 Jan 2023")
+                                    formattedResult["Account Balance Date"] = balanceDate.ToString("d MMM yyyy");
                                 }
                             }
-                            ConvertDatesToDDMMYYYY(formattedResult);
+
                             // Return the formatted result as JSON
                             return Ok(formattedResult);
+
                         }
                     }
                 }
-          
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-
 
 
         private void ConvertDateFormate(Dictionary<string, string> resultData)
