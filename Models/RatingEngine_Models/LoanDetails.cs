@@ -6,21 +6,21 @@ namespace DocuBot_Api.Models.RatingEngine_Models
     {
         public int Id { get; set; }
         public string Applno { get; set; }
-        public int Loantypeid { get; set; }
+        //public int Loantypeid { get; set; }
         public int Loanamt { get; set; }
         public int Emi { get; set; }
         public int Assetval { get; set; }
         public int Tenor { get; set; }
-        public int? Appid { get; set; }
+        //public int? Appid { get; set; }
 
 
         public DateTime? Approvaldate { get; set; }
 
         public DateTime? Disbdate { get; set; }
-        public string? Status { get; set; }
+        //public string? Status { get; set; }
         public int? Owncontrib { get; set; }
-        public double? Intrate { get; set; }
-        public string? Loanacno { get; set; }
+        //public double? Intrate { get; set; }
+       // public string? Loanacno { get; set; }
         public string? Loantype { get; set; }
         public int? Income { get; set; }
         public int? Permth { get; set; }

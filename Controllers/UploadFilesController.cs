@@ -28,7 +28,7 @@ namespace DocuBot_Api.Controllers
     {
         private readonly IConfiguration _configuration;
         private static readonly string OutputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "outputfiles");
- 
+
 
         public UploadFilesController(IConfiguration configuration)
         {
@@ -90,95 +90,80 @@ namespace DocuBot_Api.Controllers
             {
                 int DocumentID = request.DocumentId;
 
-                IActionResult getDocNameResult = await GetDocNameById(DocumentID);
-
-                if (getDocNameResult is OkObjectResult okResult && okResult.Value is string docname)
-                {
-                    // Now, use the retrieved docname as indoc in the stored procedure
-                    int doctype = 2; // Set doctype as 2
-
-
                     string connectionString = _configuration.GetConnectionString("myconn");
 
-                    using (SqlConnection connection = new SqlConnection(connectionString))
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+
+                    using (SqlCommand command = new SqlCommand("usp_SinglHTMPageKVal", connection))
                     {
-                        await connection.OpenAsync();
+                        command.CommandType = CommandType.StoredProcedure;
+                        command.Parameters.AddWithValue("@LFID", DocumentID);
 
-                        using (SqlCommand command = new SqlCommand("usp_SinglHTMPageKVal", connection))
+                        using (SqlDataReader reader = await command.ExecuteReaderAsync())
                         {
-                            command.CommandType = CommandType.StoredProcedure;
-                            command.Parameters.AddWithValue("@doctype", doctype);
-                            command.Parameters.AddWithValue("@indoc", docname);
+                            var resultData = new Dictionary<string, string>(); // Create a list to hold the extracted data
+                            string currentKey = null;
 
-                            using (SqlDataReader reader = await command.ExecuteReaderAsync())
+                            while (await reader.ReadAsync())
                             {
-                                var resultData = new Dictionary<string, string>(); // Create a list to hold the extracted data
-                                string currentKey = null;
+                                var key = reader["k1"].ToString().Trim();
+                                var value = reader["kval1"].ToString().Trim();
 
-                                while (await reader.ReadAsync())
+                                if (!string.IsNullOrEmpty(key))
                                 {
-                                    var key = reader["k1"].ToString().Trim();
-                                    var value = reader["kval1"].ToString().Trim();
-
-                                    if (!string.IsNullOrEmpty(key))
-                                    {
-                                        // If a key is present, store it in the dictionary.
-                                        resultData[key] = value;
-                                        currentKey = key;
-                                    }
-                                    else if (!string.IsNullOrEmpty(currentKey))
-                                    {
-                                        // If no key is present, append the value to the previous key's value.
-                                        resultData[currentKey] += " " + value;
-                                    }
+                                    // If a key is present, store it in the dictionary.
+                                    resultData[key] = value;
+                                    currentKey = key;
                                 }
-
-                                // Create a new dictionary for the formatted result
-                                var formattedResult = new Dictionary<string, string>();
-
-                                // Add other key-value pairs from the original resultData to the formattedResult
-                                foreach (var kvp in resultData)
+                                else if (!string.IsNullOrEmpty(currentKey))
                                 {
-                                    // Skip the "Account Balance as on" key, as it has already been processed
-                                    if (kvp.Key != "Account Balance as on")
-                                    {
-                                        formattedResult[kvp.Key] = kvp.Value;
-                                    }
+                                    // If no key is present, append the value to the previous key's value.
+                                    resultData[currentKey] += " " + value;
                                 }
-
-                                // Check if "Account Balance as on" key is present in the resultData
-                                if (resultData.ContainsKey("Account Balance as on"))
-                                {
-                                    // Extract the value for "Account Balance as on "
-                                    var accountBalanceOnKey = "Account Balance as on";
-                                    var accountBalanceOnValue = resultData[accountBalanceOnKey];
-
-                                    // Split the value into two parts based on the ':' separator
-                                    var parts = accountBalanceOnValue.Split(':');
-                                    if (parts.Length == 2)
-                                    {
-                                        // Trim and format the parts
-                                        var datePart = parts[0].Trim();
-                                        var balancePart = parts[1].Trim();
-
-                                        // Add the formatted parts to the new dictionary
-                                        formattedResult["Account Balance Date"] = datePart;
-                                        formattedResult["Account Balance"] = balancePart;
-                                    }
-                                }
-                                ConvertDatesToDDMMYYYY(formattedResult);
-                                // Return the formatted result as JSON
-                                return Ok(formattedResult);
                             }
+
+                            // Create a new dictionary for the formatted result
+                            var formattedResult = new Dictionary<string, string>();
+
+                            // Add other key-value pairs from the original resultData to the formattedResult
+                            foreach (var kvp in resultData)
+                            {
+                                // Skip the "Account Balance as on" key, as it has already been processed
+                                if (kvp.Key != "Account Balance as on")
+                                {
+                                    formattedResult[kvp.Key] = kvp.Value;
+                                }
+                            }
+
+                            // Check if "Account Balance as on" key is present in the resultData
+                            if (resultData.ContainsKey("Account Balance as on"))
+                            {
+                                // Extract the value for "Account Balance as on "
+                                var accountBalanceOnKey = "Account Balance as on";
+                                var accountBalanceOnValue = resultData[accountBalanceOnKey];
+
+                                // Split the value into two parts based on the ':' separator
+                                var parts = accountBalanceOnValue.Split(':');
+                                if (parts.Length == 2)
+                                {
+                                    // Trim and format the parts
+                                    var datePart = parts[0].Trim();
+                                    var balancePart = parts[1].Trim();
+
+                                    // Add the formatted parts to the new dictionary
+                                    formattedResult["Account Balance Date"] = datePart;
+                                    formattedResult["Account Balance"] = balancePart;
+                                }
+                            }
+                            ConvertDatesToDDMMYYYY(formattedResult);
+                            // Return the formatted result as JSON
+                            return Ok(formattedResult);
                         }
                     }
                 }
-
-
-                else
-                {
-                    return NotFound("No data found.");
-                }
+          
             }
             catch (Exception ex)
             {
@@ -308,19 +293,19 @@ namespace DocuBot_Api.Controllers
                                 return Ok(resultData); // Return the extracted data as JSON with keys from the first row
                             }
                         }
-                        
+
                     }
                 }
                 return Ok("data not found");
             }
-            
+
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
 
-  
+
 
         // Helper method to convert dates to "DD-MM-YYYY" format
         // Helper method to convert dates to "DD/MM/YYYY" format
@@ -443,6 +428,7 @@ namespace DocuBot_Api.Controllers
                         {
                             // Deserialize the JSON response from the Python API
                             var result = JsonConvert.DeserializeObject<ApiResponse>(responseContent);
+                           // result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
                             result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
 
                             try
@@ -451,6 +437,7 @@ namespace DocuBot_Api.Controllers
 
                                 using (SqlConnection connection = new SqlConnection(connectionString))
                                 {
+                                    var indoc = "E:\\docubot\\SBI Demo.html";
                                     await connection.OpenAsync();
 
                                     using (SqlCommand command = new SqlCommand("usp_uploadDoc", connection))
@@ -468,12 +455,12 @@ namespace DocuBot_Api.Controllers
 
                                                 // Other code to extract additional information if needed
 
-                                                return Ok(new
+                                                results.Add(new
                                                 {
                                                     Message = "Conversion successful.",
                                                     ApplNo = Applno,
                                                     DocumentId = docid,
-                                                    HtmlFilePath = result.html_path
+                                                    // HtmlFilePath = result.html_path
                                                 });
                                             }
                                         }
@@ -481,7 +468,7 @@ namespace DocuBot_Api.Controllers
                                 }
 
                                 // If the stored procedure did not return a result, return a 404 Not Found
-                                return NotFound("No data found for the provided parameters.");
+
                             }
                             catch (Exception ex)
                             {
@@ -524,7 +511,7 @@ namespace DocuBot_Api.Controllers
         }
 
 
-      
+
 
 
 
@@ -673,7 +660,36 @@ namespace DocuBot_Api.Controllers
             Directory.CreateDirectory(folderPath);
         }
 
+        [HttpPost("process")]
+        public IActionResult ProcessXml(IFormFile file)
+        {
+            try
+            {
+                if (file != null && file.Length > 0)
+                {
+                    using (var reader = new StreamReader(file.OpenReadStream()))
+                    {
+                        var xmlContent = reader.ReadToEnd();
+                        XmlProcessor processor = new XmlProcessor();
+                        XmlProcessorResult result = processor.ProcessXml(xmlContent);
 
+                        return Ok(result);
+                    }
+                }
+                else
+                {
+                    return BadRequest("No file uploaded.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle exceptions, log, or throw as needed
+                Console.WriteLine($"Error processing XML: {ex.Message}");
+                return StatusCode(500, "Internal Server Error");
+            }
+
+
+        }
     }
 }
 

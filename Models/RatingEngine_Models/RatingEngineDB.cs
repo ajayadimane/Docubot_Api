@@ -33,18 +33,18 @@ namespace DocuBot_Api.Models.RatingEngine_Models
                 LoanDetails lon = new()
                 {
                     Applno = loanDetails.Applno,
-                    Loantypeid = loanDetails.Loantypeid,
+                   // Loantypeid = loanDetails.Loantypeid,
                     Loanamt = loanDetails.Loanamt,
                     Emi = loanDetails.Emi,
                     Assetval = loanDetails.Assetval,
                     Tenor = loanDetails.Tenor,
-                    Appid = loanDetails.Appid,
+                    //Appid = loanDetails.Appid,
                     Approvaldate = loanDetails.Approvaldate,
                     Disbdate = loanDetails.Disbdate,
-                    Status = loanDetails.Status,
+                    //Status = loanDetails.Status,
                     Owncontrib = loanDetails.Owncontrib,
-                    Intrate = loanDetails.Intrate,
-                    Loanacno = loanDetails.Loanacno,
+                    //Intrate = loanDetails.Intrate,
+                    //Loanacno = loanDetails.Loanacno,
                     Loantype = loanDetails.Loantype,
                     Income = loanDetails.Income,
                     Permth = loanDetails.Permth,
@@ -67,7 +67,7 @@ namespace DocuBot_Api.Models.RatingEngine_Models
                     //Fixedexp = loanDetails.Fixedexp,
                     //Discretionexp = loanDetails.Discretionexp,
                     //Prodtypeid = loanDetails.Prodtypeid,
-                    //Profession = loanDetails.Profession,
+                    //Profession = loanDetails.ProfessioInvalidOperationException: There is already an open DataReader associated with this Connection which must be closed first.n,
                     //Incomerangeid = loanDetails.Incomerangeid,
                     //Education = loanDetails.Education,
                     //Residencetypeid = loanDetails.Residencetypeid,
@@ -95,22 +95,22 @@ namespace DocuBot_Api.Models.RatingEngine_Models
             DocubotDbContext _context = new();
             try
             {
-                LoanDetails lon = _context.LoanDetailsDemo.Where(ln => ln.Loanacno == loanDetails.Loanacno).FirstOrDefault();
+                LoanDetails lon = _context.LoanDetailsDemo.Where(ln => ln.Applno == loanDetails.Applno).FirstOrDefault();
                 if (lon != null)
                 {
                     lon.Applno = loanDetails.Applno;
-                    lon.Loantypeid = loanDetails.Loantypeid;
+                    //lon.Loantypeid = loanDetails.Loantypeid;
                     lon.Loanamt = loanDetails.Loanamt;
                     lon.Emi = loanDetails.Emi;
                     lon.Assetval = loanDetails.Assetval;
                     lon.Tenor = loanDetails.Tenor;
-                    lon.Appid = loanDetails.Appid;
+                    //lon.Appid = loanDetails.Appid;
                     lon.Approvaldate = loanDetails.Approvaldate;
                     lon.Disbdate = loanDetails.Disbdate;
-                    lon.Status = loanDetails.Status;
+                    //lon.Status = loanDetails.Status;
                     lon.Owncontrib = loanDetails.Owncontrib;
-                    lon.Intrate = loanDetails.Intrate;
-                    lon.Loanacno = loanDetails.Loanacno;
+                    //lon.Intrate = loanDetails.Intrate;
+                    //lon.Loanacno = loanDetails.Loanacno;
                     lon.Loantype = loanDetails.Loantype;
                     lon.Income = loanDetails.Income;
                     lon.Permth = loanDetails.Permth;

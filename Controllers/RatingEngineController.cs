@@ -45,18 +45,18 @@ namespace DocuBot_Api.Controllers
                         {
                             lndet.Id,
                             lndet.Applno,
-                            lndet.Loantypeid,
+                           // lndet.Loantypeid,
                             lndet.Loanamt,
                             lndet.Emi,
                             lndet.Assetval,
                             lndet.Tenor,
-                            lndet.Appid,
+                            //lndet.Appid,
                             lndet.Approvaldate,
                             lndet.Disbdate,
-                            lndet.Status,
+                            //lndet.Status,
                             lndet.Owncontrib,
-                            lndet.Intrate,
-                            lndet.Loanacno,
+                            //lndet.Intrate,
+                            //lndet.Loanacno,
                             lndet.Loantype,
                             lndet.Income,
                             lndet.Permth,
@@ -105,7 +105,7 @@ namespace DocuBot_Api.Controllers
             try
             {
 
-                DocubotDbContext _context = new();
+               // DocubotDbContext _context = new();
                 db.InsertIntoLoanDetails(loanDetails);
                 return new JsonResult(new { code = "1", message = "Loan Details saved Successfully", status = "Success" });
 
@@ -173,11 +173,25 @@ namespace DocuBot_Api.Controllers
                     using (SqlCommand command = new SqlCommand("usp_rating", connection))
                     {
                         command.CommandType = CommandType.StoredProcedure;
-                        command.Parameters.AddWithValue("@lfid", requestforrating.DocumentId);
+                        //command.Parameters.AddWithValue("@lfid", requestforrating.DocumentId);
                         command.Parameters.AddWithValue("@app", requestforrating.ApplNo);
 
                         await command.ExecuteNonQueryAsync();
                     }
+
+                //    string updateQuery = @"
+                //UPDATE [DEMODOCUBOT].[dbo].[LoanDetails]
+                //SET
+                //    [rating] = 3318
+                //WHERE
+                //    [applno] = @applno";
+
+
+                //    using (SqlCommand updateCommand = new SqlCommand(updateQuery, connection))
+                //    {
+                //        updateCommand.Parameters.AddWithValue("@applno", requestforrating.ApplNo);
+                //        await updateCommand.ExecuteNonQueryAsync();
+                //    }
 
                     using (SqlCommand secondCommand = new SqlCommand("USP_GetLoanParam", connection))
                     {
@@ -218,18 +232,18 @@ namespace DocuBot_Api.Controllers
                         {
                             lndet.Id,
                             lndet.Applno,
-                            lndet.Loantypeid,
+                            //lndet.Loantypeid,
                             lndet.Loanamt,
                             lndet.Emi,
                             lndet.Assetval,
                             lndet.Tenor,
-                            lndet.Appid,
+                            //lndet.Appid,
                             lndet.Approvaldate,
                             lndet.Disbdate,
-                            lndet.Status,
+                            //lndet.Status,
                             lndet.Owncontrib,
-                            lndet.Intrate,
-                            lndet.Loanacno,
+                            //lndet.Intrate,
+                            //lndet.Loanacno,
                             lndet.Loantype,
                             lndet.Income,
                             lndet.Permth,
@@ -246,11 +260,11 @@ namespace DocuBot_Api.Controllers
                             lndet.Rating,
                             lndet.Dependents,
                             lndet.Expenses,
-                            RatingCalc = new
-                            {
+                            
+                            
                                 // Properly structure the "Rating Calculation" object
-                                RatingCalculation = ratingCalcObject
-                            }
+                               ratingCalcObject
+                            
                             // Include other properties as needed
                         },
 

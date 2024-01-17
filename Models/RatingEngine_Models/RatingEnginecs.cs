@@ -10,7 +10,7 @@ namespace DocuBot_Api.Models.RatingEngine_Models
 
     public class Requestforrating
     {
-        public int DocumentId { get; set; }
+        //public int DocumentId { get; set; }
         public string ApplNo { get; set; }
     }
 
@@ -52,21 +52,24 @@ namespace DocuBot_Api.Models.RatingEngine_Models
     public class LoanDetailsMod
     {
         public string Applno { get; set; }
-        public int Loantypeid { get; set; }
+        // public int Loantypeid { get; set; }
         public int Loanamt { get; set; }
+
+        public string? Loantype { get; set; }
+
         public int Emi { get; set; }
         public int Assetval { get; set; }
         public int Tenor { get; set; }
-        public int? Appid { get; set; }
+        //public int? Appid { get; set; }
            
         public DateTime? Approvaldate { get; set; }
 
         public DateTime? Disbdate { get; set; }
-        public string? Status { get; set; }
+        //public string? Status { get; set; }
         public int? Owncontrib { get; set; }
-        public double? Intrate { get; set; }
-        public string? Loanacno { get; set; }
-        public string? Loantype { get; set; }
+        //public double? Intrate { get; set; }
+        //public string? Loanacno { get; set; }
+       
         public int? Income { get; set; }
         public int? Permth { get; set; }
         public int? Taxpaid { get; set; }
@@ -108,6 +111,34 @@ namespace DocuBot_Api.Models.RatingEngine_Models
         //public int? Loandefaults { get; set; }
         //public string Loanpurpose { get; set; }
     }
+
+
+    public class XmlKeyVal
+    {
+        public string XmlParentNode { get; set; }
+        public string XmlKey { get; set; }
+        public string XmlValue { get; set; }
+    }
+
+    public class XmlTransDetails
+    {
+        public decimal Amount { get; set; }
+        public decimal CurrentBalance { get; set; }
+        public string Mode { get; set; }
+        public string Narration { get; set; }
+        public string Reference { get; set; }
+        public string TransactionTimestamp { get; set; }
+        public string Txnid { get; set; }
+        public string TxnType { get; set; }
+        public string Valuedate { get; set; }
+    }
+
+    public class XmlProcessorResult
+    {
+        public List<XmlKeyVal> KeyValues { get; set; }
+        public List<XmlTransDetails> TransactionDetails { get; set; }
+    }
+
 
 
 
