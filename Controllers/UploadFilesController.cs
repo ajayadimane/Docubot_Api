@@ -125,52 +125,69 @@ namespace DocuBot_Api.Controllers
                                 }
                             }
                             // Create a new dictionary for the formatted result
+                            // Create a new dictionary for the formatted result
                             var formattedResult = new Dictionary<string, string>();
 
                             // Add other key-value pairs from the original resultData to the formattedResult
                             foreach (var kvp in resultData)
                             {
-                                // Skip the "Account Balance as on" key, as it has already been processed
-                                if (kvp.Key != "Account Balance Date")
+                                // Check if the key is "Interest Rate"
+                                if (kvp.Key == "Interest Rate")
                                 {
-                                    // Check if the key is "Interest Rate"
-                                    if (kvp.Key == "Interest Rate")
+                                    // Include the "Interest Rate" value as is
+                                    formattedResult[kvp.Key] = kvp.Value;
+                                }
+                                else if (kvp.Key == "Account Balance as on")
+                                {
+                                    // Extract the value for "Account Balance as on"
+                                    var accountBalanceOnValue = kvp.Value;
+
+                                    // Extract the date and balance information
+                                    var parts = accountBalanceOnValue.Split(':');
+                                    if (parts.Length == 2)
                                     {
-                                        // Include the "Interest Rate" value as is
-                                        formattedResult[kvp.Key] = kvp.Value;
-                                    }
-                                    else
-                                    {
-                                        // Format the date values for other keys
-                                        if (DateTime.TryParse(kvp.Value, out DateTime dateValue))
+                                        var datePart = parts[0].Trim();
+                                        var balancePart = parts[1].Trim();
+
+                                        // Parse and format the date
+                                        if (DateTime.TryParse(datePart, out DateTime balanceDate))
                                         {
-                                            formattedResult[kvp.Key] = dateValue.ToString("d MMM yyyy");
+                                            // Format the date in the desired format (e.g., "01-01-2023")
+                                            formattedResult["Account Balance as on"] = balanceDate.ToString("dd-MM-yyyy") + " : " + balancePart;
                                         }
                                         else
                                         {
                                             // If it's not a date, include the value as is
-                                            formattedResult[kvp.Key] = kvp.Value;
+                                            formattedResult["Account Balance as on"] = kvp.Value;
                                         }
                                     }
+                                    else
+                                    {
+                                        // If the format is unexpected, include the value as is
+                                        formattedResult["Account Balance as on"] = kvp.Value;
+                                    }
                                 }
-                            }
-
-                            // Check if "Account Balance as on" key is present in the resultData
-                            if (resultData.ContainsKey("Account Balance Date"))
-                            {
-                                // Extract the value for "Account Balance as on "
-                                var accountBalanceOnValue = resultData["Account Balance Date"];
-
-                                // Parse and format the date
-                                if (DateTime.TryParse(accountBalanceOnValue, out DateTime balanceDate))
+                                else
                                 {
-                                    // Format the date in the desired format (e.g., "1 Jan 2023")
-                                    formattedResult["Account Balance Date"] = balanceDate.ToString("d MMM yyyy");
+                                    // Format the date values for other keys
+                                    if (DateTime.TryParse(kvp.Value, out DateTime dateValue))
+                                    {
+                                        // Format the date in the desired format (e.g., "01-08-2023")
+                                        formattedResult[kvp.Key] = dateValue.ToString("dd-MM-yyyy");
+                                    }
+                                    else
+                                    {
+                                        // If it's not a date, include the value as is
+                                        formattedResult[kvp.Key] = kvp.Value;
+                                    }
                                 }
                             }
 
                             // Return the formatted result as JSON
                             return Ok(formattedResult);
+
+
+
 
                         }
                     }
@@ -319,20 +336,24 @@ namespace DocuBot_Api.Controllers
 
         // Helper method to convert dates to "DD-MM-YYYY" format
         // Helper method to convert dates to "DD/MM/YYYY" format
+        // Helper method to convert dates to "DD-MM-YYYY" format
+        // Helper method to convert dates to "DD-MM-YYYY" format
         private void ConvertDatesToDDMMYYYY(Dictionary<string, string> dataRow)
         {
             // Specify the input date format
-            string[] dateFormats = { "dd MMM yyyy" };
+            string[] dateFormats = { "d MMM yyyy" };
 
             foreach (var kvp in dataRow.ToList())
             {
                 if (DateTime.TryParseExact(kvp.Value, dateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
                 {
-                    // Convert date to "DD/MM/YYYY" format and update the dictionary
-                    dataRow[kvp.Key] = date.ToString("dd/MM/yyyy");
+                    // Convert date to "DD-MM-YYYY" format and update the dictionary
+                    dataRow[kvp.Key] = date.ToString("dd-MM-yyyy");
                 }
             }
         }
+
+
 
 
         [HttpGet("GetDocNameById/{DocumentId}")]
