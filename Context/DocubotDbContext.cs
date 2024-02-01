@@ -1,5 +1,6 @@
 ﻿using DocuBot_Api.Models;
 using DocuBot_Api.Models.RatingEngine_Models;
+using DocuBot_Api.Models.User;
 using Microsoft.EntityFrameworkCore;
 
 namespace DocuBot_Api.Context
@@ -19,7 +20,9 @@ namespace DocuBot_Api.Context
           public DbSet<usp_docuBOTPageProcess> usp_DocuBOTPageProcesses { get; set; }         
           public DbSet<LoanDetails> LoanDetailsDemo { get; set; }
           public DbSet<LoanDoc> LoanDocs { get; set; }
-          public DbSet<LoanSchedule> loanschedule { get; set;}
+         public DbSet<LoanSchedule> loanschedule { get; set; }
+
+        public virtual DbSet<UserInfo> UserInfos { get; set; }
 
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -73,6 +76,18 @@ namespace DocuBot_Api.Context
                                 .IsRequired()
                                 .HasMaxLength(20)
                                 .IsUnicode(false);
+            });
+
+            modelBuilder.Entity<UserInfo>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("UserInfo");
+                entity.Property(e => e.UserId).HasColumnName("UserId");
+                entity.Property(e => e.DisplayName).HasMaxLength(60).IsUnicode(false);
+                entity.Property(e => e.UserName).HasMaxLength(30).IsUnicode(false);
+                entity.Property(e => e.Email).HasMaxLength(50).IsUnicode(false);
+                entity.Property(e => e.Password).HasMaxLength(20).IsUnicode(false);
+                entity.Property(e => e.CreatedDate).IsUnicode(false);
             });
         }
     }

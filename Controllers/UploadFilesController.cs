@@ -19,9 +19,12 @@ using DocumentFormat.OpenXml.Office2010.Excel;
 using DocuBot_Api.Models.RatingEngine_Models;
 using DocumentFormat.OpenXml.Office2010.Word;
 using Azure.Core;
+using System.Xml;
+using Microsoft.AspNetCore.Authorization;
 
 namespace DocuBot_Api.Controllers
 {
+    
     [Route("api/[controller]")]
     [ApiController]
     public class UploadFilesController : ControllerBase
@@ -39,7 +42,7 @@ namespace DocuBot_Api.Controllers
         }
 
 
-
+    
         [HttpPost("ProcessDocument")]
         public async Task<IActionResult> ProcessDocument(string refDoc1)
         {
@@ -110,7 +113,7 @@ namespace DocuBot_Api.Controllers
                                 var value = reader["kval1"].ToString().Trim();
 
                                 // Remove unwanted characters from the value
-                                value = value.Replace("<br>", "").Replace("\t", "").Replace("\n", "").Replace("</body>", "").Replace(" </body_<_-_-/html>","");
+                                value = value.Replace("<br>", "").Replace("\t", "").Replace("\n", "").Replace("</body>", "").Replace(" </body_<_-_-/html>", "");
 
                                 if (!string.IsNullOrEmpty(key))
                                 {
@@ -459,7 +462,7 @@ namespace DocuBot_Api.Controllers
                         {
                             // Deserialize the JSON response from the Python API
                             var result = JsonConvert.DeserializeObject<ApiResponse>(responseContent);
-                           // result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
+                            // result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
                             result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
 
                             try
@@ -691,7 +694,7 @@ namespace DocuBot_Api.Controllers
             Directory.CreateDirectory(folderPath);
         }
 
-        [HttpPost("process")]
+        [HttpPost("Extarctxml")]
         public IActionResult ProcessXml(IFormFile file)
         {
             try
@@ -721,8 +724,276 @@ namespace DocuBot_Api.Controllers
 
 
         }
+
+
+
+        [HttpGet("Generate xml")]
+        public IActionResult GenerateXml()
+        {
+            // Fetch data from your SQL database using Entity Framework or other methods
+            List<TransactionModel> transactions = FetchDataFromDatabase();
+
+            // Create XML document
+            XmlDocument xmlDoc = new XmlDocument();
+
+            XmlElement root = xmlDoc.CreateElement("Account");
+
+            // Add attributes to the Account element
+            root.SetAttribute("linkedAccRef", "8736eaae-3657-4abf-a724-471945866ce9");
+            root.SetAttribute("maskedAccNumber", "XXXXXXXX8000");
+            root.SetAttribute("xsi:schemaLocation", "http://api.rebit.org.in/FISchema/deposit ../FISchema/deposit.xsd");
+            root.SetAttribute("type", "deposit");
+            root.SetAttribute("version", "1.1");
+
+            // Add Profile and Summary elements as child elements of Account
+            XmlElement profileElement = xmlDoc.CreateElement("Profile");
+            XmlElement holdersElement = xmlDoc.CreateElement("Holders");
+
+            // Add attributes to the Holders element
+            holdersElement.SetAttribute("type", "SINGLE");
+
+            // Add Holder element as child element of Holders
+            XmlElement holderElement = xmlDoc.CreateElement("Holder");
+            holderElement.SetAttribute("address", "8/1190, 5th Cross, 3rd Main, 7th Block, Jayanagar, Bangalore - 560011");
+            holderElement.SetAttribute("ckycCompliance", "true");
+            holderElement.SetAttribute("dob", "1947-08-15");
+            holderElement.SetAttribute("email", "akshayku@gmail.com");
+            holderElement.SetAttribute("landline", "");
+            holderElement.SetAttribute("mobile", "7999517080");
+            holderElement.SetAttribute("name", "Akshay Kumar");
+            holderElement.SetAttribute("nominee", "REGISTERED");
+            holderElement.SetAttribute("pan", "AAAAA0000A");
+
+            holdersElement.AppendChild(holderElement);
+            profileElement.AppendChild(holdersElement);
+
+            XmlElement summaryElement = xmlDoc.CreateElement("Summary");
+
+            // Add attributes to the Summary element
+            summaryElement.SetAttribute("currentBalance", "187536.52");
+            summaryElement.SetAttribute("currency", "INR");
+            summaryElement.SetAttribute("branch", "Jayanagar 4th Block");
+            summaryElement.SetAttribute("balanceDateTime", "2023-04-03T14:11:49+00:00");
+            summaryElement.SetAttribute("currentODLimit", "0");
+            summaryElement.SetAttribute("drawingLimit", "0");
+            summaryElement.SetAttribute("exchgeRate", " ");
+            summaryElement.SetAttribute("facility", "OD");
+            summaryElement.SetAttribute("ifscCode", "ICIC0001124");
+            summaryElement.SetAttribute("micrCode", "500240246");
+            summaryElement.SetAttribute("openingDate", "2004-08-06");
+            summaryElement.SetAttribute("status", "ACTIVE");
+            summaryElement.SetAttribute("type", "SAVINGS");
+
+            XmlElement pendingElement = xmlDoc.CreateElement("Pending");
+            pendingElement.SetAttribute("transactionType", "DEBIT");
+            pendingElement.SetAttribute("amount", "0");
+
+            summaryElement.AppendChild(pendingElement);
+
+            root.AppendChild(profileElement);
+            root.AppendChild(summaryElement);
+
+            // Create root element
+            XmlElement Transactions = xmlDoc.CreateElement("Transactions");
+
+            // Set start and end date attributes
+            Transactions.SetAttribute("startDate", "2022-10-02");
+            Transactions.SetAttribute("endDate", "2023-03-31");
+
+            root.AppendChild(Transactions);
+
+            // Add each transaction as a child element
+            foreach (var transaction in transactions)
+            {
+                XmlElement transactionElement = xmlDoc.CreateElement("Transaction");
+
+                // Add attributes with null checks and default values
+                AddAttribute(xmlDoc, transactionElement, "amount", transaction.Amount, "null");
+                AddAttribute(xmlDoc, transactionElement, "currentBalance", transaction.CurrentBalance, "null");
+                AddAttribute(xmlDoc, transactionElement, "mode", transaction.Mode, "null");
+                AddAttribute(xmlDoc, transactionElement, "narration", transaction.Narration, "null");
+                AddAttribute(xmlDoc, transactionElement, "reference", transaction.Reference, "null");
+                AddAttribute(xmlDoc, transactionElement, "transactionTimestamp", transaction.TransactionTimestamp.ToString("yyyy-MM-ddTHH:mm:sszzz"), "null");
+                AddAttribute(xmlDoc, transactionElement, "txnId", transaction.TxnId, "null");
+                AddAttribute(xmlDoc, transactionElement, "type", GetTransactionType(transaction.Amount, transaction.CurrentBalance), "null");
+                AddAttribute(xmlDoc, transactionElement, "valueDate", transaction.ValueDate.ToString("yyyy-MM-dd"), "null");
+
+
+             
+
+
+
+
+
+
+                // Assuming you have other properties like mode, type, txnId, you can add them similarly.
+
+                Transactions.AppendChild(transactionElement);
+            }
+
+            xmlDoc.AppendChild(root);
+
+            // Save the XML document to a file in the XmlFiles folder
+            string xmlFolderPath = Path.Combine(Directory.GetCurrentDirectory(), "XmlFiles");
+
+            if (!Directory.Exists(xmlFolderPath))
+            {
+                Directory.CreateDirectory(xmlFolderPath);
+            }
+
+            string xmlFilePath = Path.Combine(xmlFolderPath, "transactions.xml");
+            xmlDoc.Save(xmlFilePath);
+
+            return Ok($"XML file generated successfully. Path: {xmlFilePath}");
+        }
+
+        private void AddAttribute(XmlDocument xmlDoc, XmlElement element, string attributeName, string attributeValue, string defaultValue = null)
+        {
+            element.SetAttribute(attributeName, attributeValue ?? defaultValue);
+        }
+
+        private string GetTransactionType(string col5, string col6)
+        {
+            if (!string.IsNullOrEmpty(col5) && double.TryParse(col5, out double col5Value))
+            {
+                if (col5Value < 0)
+                {
+                    return "DEBIT";
+                }
+                else if (col5Value > 0)
+                {
+                    return "CREDIT";
+                }
+            }
+            else if (!string.IsNullOrEmpty(col6) && double.TryParse(col6, out double col6Value))
+            {
+                if (col6Value < 0)
+                {
+                    return "CREDIT";
+                }
+                else if (col6Value > 0)
+                {
+                    return "DEBIT";
+                }
+            }
+
+            return "UNKNOWN";
+        }
+
+
+
+
+
+
+
+        [HttpGet("transactions-xml")]
+        public IActionResult GetXmlFile()
+        {
+            string xmlFilePath = Path.Combine(Directory.GetCurrentDirectory(), "XmlFiles", "transactions.xml");
+
+            if (!System.IO.File.Exists(xmlFilePath))
+            {
+                return NotFound("XML file not found. Path: " + xmlFilePath);
+            }
+
+            var fileBytes = System.IO.File.ReadAllBytes(xmlFilePath);
+            return File(fileBytes, "application/xml", "transactions.xml");
+        }
+
+        private List<TransactionModel> FetchDataFromDatabase()
+        {
+            // Fetch only specific columns (col1 to col7) from your SQL database
+            string connectionString = _configuration.GetConnectionString("myconn");
+            List<TransactionModel> transactions = new List<TransactionModel>();
+
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string query = "SELECT [col1], [col2], [col3], [col4], [col5], [col6], [col7] FROM [DEMODOCUBOT].[dbo].[tabledata]";
+
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    using (SqlDataReader reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            // Map columns to your model
+                            TransactionModel transaction = new TransactionModel
+                            {
+                                // Map columns to your model properties
+                                TransactionTimestamp = GetDateTime(reader, "col1"),
+                                ValueDate = GetDateTime(reader, "col2"),
+                                Narration = reader.GetString(reader.GetOrdinal("col3")),
+                                Reference = reader.GetString(reader.GetOrdinal("col4")),
+                                Amount = GetAmount(reader, "col5", "col6"),
+                                CurrentBalance = reader.GetString(reader.GetOrdinal("col7"))
+                                // Add other properties if needed
+                            };
+
+                            transactions.Add(transaction);
+                        }
+                    }
+                }
+            }
+
+            return transactions;
+        }
+
+
+        private DateTime GetDateTime(SqlDataReader reader, string columnName)
+        {
+            int columnIndex = reader.GetOrdinal(columnName);
+
+            if (reader.IsDBNull(columnIndex))
+            {
+                return DateTime.MinValue; // Or any other default value you prefer for null dates
+            }
+
+            string stringValue = reader.GetString(columnIndex);
+
+            if (DateTime.TryParse(stringValue, out DateTime result))
+            {
+                return result;
+            }
+
+            // If parsing fails, you might want to log or handle this case appropriately
+            // For now, returning DateTime.MinValue, but you can choose a different default
+            return DateTime.MinValue;
+        }
+
+
+
+        private string GetAmount(SqlDataReader reader, string col5Name, string col6Name)
+        {
+            int col5Index = reader.GetOrdinal(col5Name);
+            int col6Index = reader.GetOrdinal(col6Name);
+
+            // If col5 is null or negative, consider col6 as the amount with a negative sign
+            if (reader.IsDBNull(col5Index) || !double.TryParse(reader[col5Index].ToString(), out double col5Value) || col5Value < 0)
+            {
+                if (double.TryParse(reader[col6Index].ToString(), out double col6Value))
+                {
+                    return (col6Value).ToString("F2"); // Return with a negative sign
+                }
+                else
+                {
+                    return "0.00"; // Default value if parsing fails
+                }
+            }
+
+            // Otherwise, consider col5 as the amount
+            return col5Value.ToString("F2");
+        }
+
+
+
+
+
+
     }
 }
+
 
 
 
