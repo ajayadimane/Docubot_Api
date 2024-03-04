@@ -139,7 +139,13 @@ namespace DocuBot_Api.Models.RatingEngine_Models
         public List<XmlTransDetails> TransactionDetails { get; set; }
     }
 
-
+    public class UpdateLoadDetINsql
+    {
+        public string Applno { get; set; }
+        public int rating { get; set; }
+        public int income { get; set; }
+        public int expenses { get; set; }
+    }
 
 
 }

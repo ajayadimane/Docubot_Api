@@ -1,7 +1,10 @@
-﻿namespace DocuBot_Api.Models.User
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace DocuBot_Api.Models.User
 {
     public class UserInfo
     {
+        [Key]
         public int UserId { get; set; }
         public string? DisplayName { get; set; }
         public string? UserName { get; set; }

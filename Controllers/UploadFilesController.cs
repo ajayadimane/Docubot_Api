@@ -21,10 +21,14 @@ using DocumentFormat.OpenXml.Office2010.Word;
 using Azure.Core;
 using System.Xml;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
+using DocuBot_Api.Classes;
+using DocumentFormat.OpenXml.Wordprocessing;
+using System.Reflection.Metadata;
+using System;
 
 namespace DocuBot_Api.Controllers
 {
-    
     [Route("api/[controller]")]
     [ApiController]
     public class UploadFilesController : ControllerBase
@@ -85,6 +89,7 @@ namespace DocuBot_Api.Controllers
             }
         }
 
+        [Authorize]
         [HttpPost("keyvalue")]
         public async Task<IActionResult> NewDocumentProcessing(ExtractionRequest request)
         {
@@ -274,7 +279,7 @@ namespace DocuBot_Api.Controllers
         //}
 
         ///mnt/Backup/CVision/docubot-api/DocuBot/static/results/html/Bank Statement(1).html
-
+        [Authorize]
         [HttpPost("ExtractColumns")]
         public async Task<IActionResult> ExtractColumns(ExtractionRequest request)
         {
@@ -471,7 +476,7 @@ namespace DocuBot_Api.Controllers
 
                                 using (SqlConnection connection = new SqlConnection(connectionString))
                                 {
-                                    var indoc = "E:\\docubot\\SBI Demo.html";
+                                    //var indoc = "E:\\docubot\\SBI Demo.html";
                                     await connection.OpenAsync();
 
                                     using (SqlCommand command = new SqlCommand("usp_uploadDoc", connection))
@@ -545,158 +550,105 @@ namespace DocuBot_Api.Controllers
         }
 
 
-
-
-
-
-
-        //[HttpPost("UploadPdf")]
-        //public async Task<ActionResult> UploadPdf(IFormFile file)
+        //[HttpPost]
+        //public IActionResult ConvertPdfToHtml(IFormFile file)
         //{
-        //    if (file != null && file.Length > 0)
+        //    try
         //    {
-        //        string url = "https://demo.botaiml.com/cnvrt/convert/pdf";
+        //        // Create folders if not exists
+        //        string inputFilesPath = Path.Combine(Environment.CurrentDirectory, "inputfiles");
+        //        string htmlFilesPath = Path.Combine(Environment.CurrentDirectory, "HtmlFiles");
 
-        //        try
+        //        Directory.CreateDirectory(inputFilesPath);
+        //        Directory.CreateDirectory(htmlFilesPath);
+
+        //        // Save the file to the inputfiles folder
+        //        string fileName = Path.GetFileNameWithoutExtension(file.FileName);
+        //        string filePath = Path.Combine(inputFilesPath, $"{fileName}.pdf");
+
+        //        // Clear or replace existing data in inputfiles folder
+        //        ClearOrReplaceFolder(inputFilesPath);
+
+        //        using (FileStream fileStream = System.IO.File.Create(filePath))
         //        {
-        //            using var client = new HttpClient
-        //            {
-        //                BaseAddress = new Uri(url)
-        //            };
-        //            client.Timeout = TimeSpan.FromMinutes(20);
-
-
-
-        //            using var content = new MultipartFormDataContent();
-        //            content.Add(new StreamContent(file.OpenReadStream()), "file", file.FileName);
-
-        //            var response = await client.PostAsync(url, content);
-        //            var responseContent = await response.Content.ReadAsStringAsync();
-
-
-        //            if (response.IsSuccessStatusCode)
-        //            {
-
-        //                // Deserialize the JSON response from the Python API.
-        //                var result = JsonConvert.DeserializeObject<ApiResponse>(responseContent);
-        //                result.html_path = Path.Combine("/mnt/Backup/CVision/docubot-api/DocuBot/", result.html_path);
-
-        //                return Ok(result);
-        //            }
-        //            else
-        //            {
-        //                return BadRequest("Bad request to Python API");
-        //            }
+        //            file.CopyTo(fileStream);
+        //            fileStream.Flush();
         //        }
-        //        catch (Exception ex)
+
+        //        // Unzip the file if it's a zip file
+        //        if (Path.GetExtension(filePath).Equals(".zip", StringComparison.OrdinalIgnoreCase))
         //        {
-        //            return StatusCode(500, ex.Message);
+        //            string extractionPath = Path.Combine(inputFilesPath, fileName);
+        //            ZipFile.ExtractToDirectory(filePath, extractionPath);
+        //            filePath = Path.Combine(extractionPath, $"{fileName}.pdf");
         //        }
+
+        //        // Clear or replace existing data in HtmlFiles folder
+        //        ClearOrReplaceFolder(htmlFilesPath);
+
+        //        // Convert PDF to HTML using the ConvertPDFtoHTML method
+        //        ConvertPDFtoHTML(inputFilesPath, htmlFilesPath, filePath);
+
+        //        // Get the HTML file path
+        //        string htmlFilePath = Path.Combine(htmlFilesPath, $"{Path.GetFileNameWithoutExtension(filePath)}.txt");
+
+        //        return Ok(new { Message = "Conversion successful.", HtmlFilePath = htmlFilePath });
         //    }
-        //    else
+        //    catch (Exception ex)
         //    {
-        //        return BadRequest("Invalid PDF file.");
+        //        return StatusCode(500, $"Error: {ex.Message}");
         //    }
         //}
 
-        [HttpPost]
-        public IActionResult ConvertPdfToHtml(IFormFile file)
-        {
-            try
-            {
-                // Create folders if not exists
-                string inputFilesPath = Path.Combine(Environment.CurrentDirectory, "inputfiles");
-                string htmlFilesPath = Path.Combine(Environment.CurrentDirectory, "HtmlFiles");
 
-                Directory.CreateDirectory(inputFilesPath);
-                Directory.CreateDirectory(htmlFilesPath);
+        //private void ConvertPDFtoHTML(string userInputfilesPath, string userHtmlFilePath, string pdfFilePath)
+        //{
+        //    try
+        //    {
+        //        var configSettingsSection = _configuration.GetSection("ConfigSettings");
 
-                // Save the file to the inputfiles folder
-                string fileName = Path.GetFileNameWithoutExtension(file.FileName);
-                string filePath = Path.Combine(inputFilesPath, $"{fileName}.pdf");
+        //        string pdfToHtmlConverterPath = configSettingsSection.GetValue<string>("PDFToHtmlConverter");
+        //        string pdfToHtmlConverterCmd = configSettingsSection.GetValue<string>("PDFToHtmlConverterCmd");
+        //        string inputPath = pdfFilePath;
+        //        string outputPath = Path.Combine(userHtmlFilePath, $"{Path.GetFileNameWithoutExtension(pdfFilePath)}.txt");
 
-                // Clear or replace existing data in inputfiles folder
-                ClearOrReplaceFolder(inputFilesPath);
+        //        var batchFilePath = Path.Combine(userInputfilesPath, "pdftohtml.bat");
+        //        StreamWriter w = new StreamWriter(batchFilePath);
+        //        w.WriteLine("echo inbatch");
+        //        w.WriteLine(@"""" + pdfToHtmlConverterPath + @"""" + " " + @"""" + inputPath + @"""" + " " + @"""" + outputPath + @""" " + pdfToHtmlConverterCmd);
+        //        w.Close();
 
-                using (FileStream fileStream = System.IO.File.Create(filePath))
-                {
-                    file.CopyTo(fileStream);
-                    fileStream.Flush();
-                }
+        //        // Execute bat file
+        //        Process p1 = new Process();
+        //        p1.StartInfo.UseShellExecute = false;
+        //        p1.StartInfo.RedirectStandardOutput = true;
+        //        p1.StartInfo.RedirectStandardInput = true;
+        //        p1.StartInfo.WorkingDirectory = userInputfilesPath;
+        //        p1.StartInfo.FileName = Path.Combine(Environment.CurrentDirectory, batchFilePath);
+        //        p1.Start();
+        //        p1.WaitForExit();
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Handle the exception
+        //    }
+        //}
 
-                // Unzip the file if it's a zip file
-                if (Path.GetExtension(filePath).Equals(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    string extractionPath = Path.Combine(inputFilesPath, fileName);
-                    ZipFile.ExtractToDirectory(filePath, extractionPath);
-                    filePath = Path.Combine(extractionPath, $"{fileName}.pdf");
-                }
+        //private void ClearOrReplaceFolder(string folderPath)
+        //{
+        //    // Clear or replace existing data in the folder
+        //    if (Directory.Exists(folderPath))
+        //    {
+        //        Directory.Delete(folderPath, true);
+        //    }
 
-                // Clear or replace existing data in HtmlFiles folder
-                ClearOrReplaceFolder(htmlFilesPath);
+        //    Directory.CreateDirectory(folderPath);
+        //}
 
-                // Convert PDF to HTML using the ConvertPDFtoHTML method
-                ConvertPDFtoHTML(inputFilesPath, htmlFilesPath, filePath);
-
-                // Get the HTML file path
-                string htmlFilePath = Path.Combine(htmlFilesPath, $"{Path.GetFileNameWithoutExtension(filePath)}.txt");
-
-                return Ok(new { Message = "Conversion successful.", HtmlFilePath = htmlFilePath });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error: {ex.Message}");
-            }
-        }
-
-
-        private void ConvertPDFtoHTML(string userInputfilesPath, string userHtmlFilePath, string pdfFilePath)
-        {
-            try
-            {
-                var configSettingsSection = _configuration.GetSection("ConfigSettings");
-
-                string pdfToHtmlConverterPath = configSettingsSection.GetValue<string>("PDFToHtmlConverter");
-                string pdfToHtmlConverterCmd = configSettingsSection.GetValue<string>("PDFToHtmlConverterCmd");
-                string inputPath = pdfFilePath;
-                string outputPath = Path.Combine(userHtmlFilePath, $"{Path.GetFileNameWithoutExtension(pdfFilePath)}.txt");
-
-                var batchFilePath = Path.Combine(userInputfilesPath, "pdftohtml.bat");
-                StreamWriter w = new StreamWriter(batchFilePath);
-                w.WriteLine("echo inbatch");
-                w.WriteLine(@"""" + pdfToHtmlConverterPath + @"""" + " " + @"""" + inputPath + @"""" + " " + @"""" + outputPath + @""" " + pdfToHtmlConverterCmd);
-                w.Close();
-
-                // Execute bat file
-                Process p1 = new Process();
-                p1.StartInfo.UseShellExecute = false;
-                p1.StartInfo.RedirectStandardOutput = true;
-                p1.StartInfo.RedirectStandardInput = true;
-                p1.StartInfo.WorkingDirectory = userInputfilesPath;
-                p1.StartInfo.FileName = Path.Combine(Environment.CurrentDirectory, batchFilePath);
-                p1.Start();
-                p1.WaitForExit();
-            }
-            catch (Exception ex)
-            {
-                // Handle the exception
-            }
-        }
-
-        private void ClearOrReplaceFolder(string folderPath)
-        {
-            // Clear or replace existing data in the folder
-            if (Directory.Exists(folderPath))
-            {
-                Directory.Delete(folderPath, true);
-            }
-
-            Directory.CreateDirectory(folderPath);
-        }
 
         [HttpPost("Extarctxml")]
-        public IActionResult ProcessXml(IFormFile file)
-        {
+        public  IActionResult ProcessXml(IFormFile file)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
             try
             {
                 if (file != null && file.Length > 0)
@@ -707,13 +659,58 @@ namespace DocuBot_Api.Controllers
                         XmlProcessor processor = new XmlProcessor();
                         XmlProcessorResult result = processor.ProcessXml(xmlContent);
 
-                        return Ok(result);
+                        try
+                        {
+
+
+                            string connectionString = _configuration.GetConnectionString("myconn");
+
+                            using (SqlConnection connection = new SqlConnection(connectionString))
+                            {
+                                connection.Open();
+
+                                foreach (var transDetail in result.TransactionDetails)
+                                {
+                                    using (SqlCommand command = new SqlCommand("usp_uploadtabeldata", connection))
+                                    {
+                                        command.CommandType = CommandType.StoredProcedure;
+                                        command.Parameters.AddWithValue("@lfid", 72);
+                                        command.Parameters.AddWithValue("@col1", transDetail.TransactionTimestamp);
+                                        command.Parameters.AddWithValue("@col2", transDetail.Valuedate);
+                                        command.Parameters.AddWithValue("@col3", transDetail.Narration);
+                                        command.Parameters.AddWithValue("@col4", transDetail.Reference);
+                                        command.Parameters.AddWithValue("@col5", transDetail.TxnType == "DEBIT" ? transDetail.Amount.ToString() : DBNull.Value.ToString());
+                                        command.Parameters.AddWithValue("@col6", transDetail.TxnType == "CREDIT" ? transDetail.Amount.ToString() : DBNull.Value.ToString());
+                                        //command.Parameters.AddWithValue("@col5", '-');
+                                        //command.Parameters.AddWithValue("@col6", '-');
+                                        command.Parameters.AddWithValue("@col7", transDetail.CurrentBalance);
+
+                                        // Execute the command
+                                        command.ExecuteNonQuery();
+
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex) 
+                        {
+                            // Handle database - related exceptions or log the error
+                            Console.WriteLine($"Error executing stored procedure: {ex.Message}");
+                            return StatusCode(500, "Internal Server Error");
+
+
+                        }
+
+                     return Ok(result);
+                        
                     }
                 }
+
                 else
                 {
                     return BadRequest("No file uploaded.");
                 }
+                
             }
             catch (Exception ex)
             {
