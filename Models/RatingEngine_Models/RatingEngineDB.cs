@@ -196,5 +196,27 @@ namespace DocuBot_Api.Models.RatingEngine_Models
             return details;
             //_context.downloadREData.ExecuteSqlInterpolated($"Exec USP_GetLoanParam @loancode = {loanrefid}");
         }
+
+        public void UpdateLoanDetailsInsqlDB(UpdateLoadDetINsql loanDetails)
+        {
+            DocubotDbContext _context = new();
+            try
+            {
+                LoanDetails lon = _context.LoanDetailsDemo.Where(ln => ln.Applno == loanDetails.Applno).FirstOrDefault();
+                if (lon != null)
+                {
+                  
+                    lon.Rating = loanDetails.rating; 
+                    lon.Income = loanDetails.income;
+                    lon.Expenses = loanDetails.expenses;
+                
+                };
+                _context.Update(lon);
+                _context.SaveChanges();
+            }
+            catch (Exception ex)
+            { }
+
+        }
     }
 }

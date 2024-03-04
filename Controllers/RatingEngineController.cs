@@ -1,6 +1,7 @@
 ﻿using DocuBot_Api.Context;
 
 using DocuBot_Api.Models.RatingEngine_Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -97,7 +98,7 @@ namespace DocuBot_Api.Controllers
             }
         }
 
-
+        //[Authorize]
         [HttpPost]
         [Route("InsertLoanDetails")]
         public IActionResult InsertLoanDetails(LoanDetailsMod loanDetails)
