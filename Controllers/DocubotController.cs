@@ -5,10 +5,13 @@ using DocuBot_Api.Models_Pq;
 using DocuBot_Api.Models_Pq.RequestViewModels;
 using DocuBot_Api.Models_Pq.ResponseModels;
 using DocuBot_Api.Rating_Models;
+using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using System.Data;
 using System.Net;
@@ -35,6 +38,7 @@ namespace DocuBot_Api.Controllers
             //_httpClientFactory = httpClientFactory;
         }
 
+        [Authorize]
         [HttpGet("GetLoadedFiles")]
         public async Task<ActionResult> GetLoadedFiles()
         {
@@ -77,9 +81,10 @@ namespace DocuBot_Api.Controllers
                         {
                             await file.CopyToAsync(inputStream);
                         }
+                        //var ResFilepath = Path.Combine("/rating/UploadFiles/", file.FileName);
                         var ResFilepath = Path.Combine("/rating/UploadFiles/", file.FileName);
 
-                        
+
 
                         var InsertLoadedFilesModel = new Rating_Models.Loadedfile
                         { 
@@ -92,13 +97,14 @@ namespace DocuBot_Api.Controllers
                        
                         results.Add(new UploadFilesResModel
                         {
-                            Id = InsertLoadedFilesModel.Id,
-                            Docname = InsertLoadedFilesModel.Docname,
-                            Applno = Applno
+                            
+                            Applno = Applno,
+                            Lfid = InsertLoadedFilesModel.Id
+                            
                         });
 
                     }
-
+                  
                     return Ok(results);
                    
                 }
@@ -113,11 +119,165 @@ namespace DocuBot_Api.Controllers
             }
         }
 
+
+        [Authorize]
         [HttpPost("ExtractKeyVal")]
         public async Task<ActionResult> ExtractKeyval(int docid)
         {
             string baseUrl = "https://demo.botaiml.com";
             string endpoint = "/extract/extract_details/";
+
+            if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(endpoint))
+            {
+                return BadRequest("Invalid base URL or endpoint.");
+            }
+
+            try
+            {
+                using var client = new HttpClient
+                {
+                    BaseAddress = new Uri(baseUrl)
+                };
+
+                // Append docid to the endpoint URL
+                string requestUrl = $"{baseUrl}{endpoint}?docid={docid}";
+
+                var response = await client.PostAsync(requestUrl, null);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var bankName = _context.ExtractionKeyValues
+                    .Where(e => e.Docid == docid)
+                    .Select(e => e.Bankname)
+                    .FirstOrDefault();
+
+                    if (string.IsNullOrEmpty(bankName))
+                    {
+                        return NotFound($"Bank not found for docId: {docid}");
+                    }
+
+                    var bankConfiguration = _configuration.GetSection($"BankConfigurations:{bankName.ToUpper()}")
+                        .Get<BankConfiguration>();
+
+                    if (bankConfiguration == null)
+                    {
+                        return NotFound($"Configuration not found for bank: {bankName}");
+                    }
+
+                    var bankDetails = _context.ExtractionKeyValues
+                        .Where(e => e.Docid == docid && e.Bankname == bankName)
+                        .Select(e => GenerateResponse(e, bankConfiguration.Fields))
+                        .FirstOrDefault();
+
+
+                    if (bankDetails == null)
+                    {
+                        return NotFound();
+                    }
+
+                    return Ok(bankDetails);
+                
+                }
+                else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
+                {
+                    // Handle redirect by extracting the new location from headers
+                    var redirectUrl = response.Headers.Location;
+                    // Make a new request to the redirected URL
+                    response = await client.PostAsync(redirectUrl, null);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        return Ok(responseContent);
+                    }
+                }
+                else
+                {
+                    // Handle other cases where the response status code is not success or redirect
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    return StatusCode((int)response.StatusCode, responseContent);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the exception
+                //_logger.LogError($"Exception occurred: {ex.Message}");
+                return StatusCode(500, "Internal Server Error");
+            }
+            return BadRequest("Unexpected error occurred");
+        }
+
+
+        private static object GenerateResponse(ExtractionKeyValue entity, IEnumerable<string> fields)
+        {
+            var response = new System.Dynamic.ExpandoObject() as IDictionary<string, object>;
+
+            // Check if Address1 and Address2 are in the fields list
+            var mergeAddressFields = fields.Contains("Address1") && fields.Contains("Address2");
+
+            // Check if Bankaddress1 and Bankaddress2 are in the fields list
+            var mergeBankAddressFields = fields.Contains("Bankaddress1") && fields.Contains("Bankaddress2");
+
+            foreach (var field in fields)
+            {
+                if (field == "Address")
+                {
+                    var address = entity.GetType().GetProperty("Address")?.GetValue(entity) as string;
+
+                    // Conditionally merge Address1 and Address2 into Address
+                    if (mergeAddressFields)
+                    {
+                        var address1 = entity.GetType().GetProperty("Address1")?.GetValue(entity) as string;
+                        var address2 = entity.GetType().GetProperty("Address2")?.GetValue(entity) as string;
+                        address = $"{address} {address1} {address2}".Trim();
+                    }
+
+                    response.Add("Address", address);
+                }
+                else if (field == "Bankaddress")
+                {
+                    var bankAddress = entity.GetType().GetProperty("Bankaddress")?.GetValue(entity) as string;
+
+                    // Conditionally merge Bankaddress1 and Bankaddress2 into Bankaddress
+                    if (mergeBankAddressFields)
+                    {
+                        var bankAddress1 = entity.GetType().GetProperty("Bankaddress1")?.GetValue(entity) as string;
+                        var bankAddress2 = entity.GetType().GetProperty("Bankaddress2")?.GetValue(entity) as string;
+                        bankAddress = $"{bankAddress} {bankAddress1} {bankAddress2}".Trim();
+                    }
+
+                    response.Add("Bankaddress", bankAddress);
+                }
+                else if (field != "Bankaddress1" && field != "Bankaddress2" && field != "Address1" && field != "Address2")
+                {
+                    response.Add(field, entity.GetType().GetProperty(field)?.GetValue(entity));
+                }
+            }
+
+            return response;
+        }
+
+
+
+
+
+
+        [HttpPost("ExtarctDetialsby ID")]
+        public async Task<ActionResult> GetKeyval(int docid)
+        {
+            var Extarctedvalues = await _context.ExtractionKeyValues.Where(e => e.Docid == docid).ToListAsync();
+
+            return Ok(Extarctedvalues);
+        }
+
+
+
+        [Authorize]
+        [HttpPost("ExtractTransactions")]
+        public async Task<ActionResult> ExtractTableData(int docid)
+        {
+            string baseUrl = "https://demo.botaiml.com";
+            string endpoint = "/extract/extract_transactions/";
 
             if (!string.IsNullOrEmpty(baseUrl) && !string.IsNullOrEmpty(endpoint))
             {
@@ -135,35 +295,37 @@ namespace DocuBot_Api.Controllers
 
                     if (response.IsSuccessStatusCode)
                     {
+                        var bankName = _context.ExtractTransactionData
+                        .Where(e => e.Docid == docid)
+                        .Select(e => e.Bankname)
+                        .FirstOrDefault();
 
-                        var transactionDetail = await _context.ExtractionKeyValues.Where(td => td.Docid == docid).FirstOrDefaultAsync();
+                        if (string.IsNullOrEmpty(bankName))
+                        {
+                            return NotFound($"Bank not found for docId: {docid}");
+                        }
 
-                        if (transactionDetail == null)
+                        var bankConfiguration = _configuration.GetSection($"TransBankConfig:{bankName.ToUpper()}")
+                            .Get<TransBankConfig>();
+
+                        if (bankConfiguration == null)
+                        {
+                            return NotFound($"Configuration not found for bank: {bankName}");
+                        }
+
+                        var bankDetails = await _context.ExtractTransactionData
+                        .Where(e => e.Docid == docid && e.Bankname == bankName)
+                        .Select(e => GenerateResponsefromconfig(e, bankConfiguration.Fields))
+                        .ToListAsync();
+
+
+
+                        if (bankDetails == null)
                         {
                             return NotFound();
                         }
 
-                        var Extractkeyval = new KeyvalRes
-                        {
-                            Bankname = transactionDetail.Bankname,
-                            Accountholder = transactionDetail.Accountholder,
-                            Address = transactionDetail.Address,
-                            Date = transactionDetail.Date,
-                            Accountno = transactionDetail.Accountno,
-                            Accountdescription = transactionDetail.Accountdescription,
-                            Branch = transactionDetail.Branch,
-                            Drawingpower = transactionDetail.Drawingpower,
-                            Interestrate = transactionDetail.Interestrate,
-                            Ifsc = transactionDetail.Ifsc,
-                            Micrcode = transactionDetail.Micrcode,
-                            //Cif = transactionDetail.Cif,
-                            Nominationregistered = transactionDetail.Nominationregistered,
-                            Balanceason = transactionDetail.Balanceason,
-                            Balanceamount = transactionDetail.Balanceamount,
-                            Statementperiod = transactionDetail.Statementperiod,
-                        };
-
-                        return Ok(Extractkeyval);
+                        return Ok(bankDetails);
                     }
                     else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                     {
@@ -195,105 +357,34 @@ namespace DocuBot_Api.Controllers
             return BadRequest();
         }
 
-        [HttpPost("ExtarctDetialsby ID")]
-        public async Task<ActionResult> GetKeyval(int docid)
+        private static object GenerateResponsefromconfig(Rating_Models.ExtractTransactionDatum entity, IEnumerable<string> fields)
         {
-            var Extarctedvalues = await _context.ExtractionKeyValues.Where(e => e.Docid == docid).ToListAsync();
+            var response = new System.Dynamic.ExpandoObject() as IDictionary<string, Object>;
 
-            return Ok(Extarctedvalues);
-        }
-
-
-
-
-        [HttpPost("ExtractTransactions")]
-        public async Task<ActionResult> ExtractTableData(int docid)
-        {
-            string baseUrl = "https://demo.botaiml.com";
-            string endpoint = "/extract/extract_transactions/";
-
-            if (!string.IsNullOrEmpty(baseUrl) && !string.IsNullOrEmpty(endpoint))
+            foreach (var field in fields)
             {
-                try
-                {
-                    using var client = new HttpClient
-                    {
-                        BaseAddress = new Uri(baseUrl)
-                    };
-
-                    // Append docid to the endpoint URL
-                    string requestUrl = $"{baseUrl}{endpoint}?docid={docid}";
-
-                    var response = await client.PostAsync(requestUrl, null);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var transactionDetails = await _context.ExtractTransactionData
-                        .Where(td => td.Docid == docid)
-                        .ToListAsync();
-
-                        if (transactionDetails == null || !transactionDetails.Any())
-                        {
-                            return NotFound();
-                        }
-
-                        var responseList = transactionDetails.Select(td => new ExtractTransResModel
-                        {
-                            TxnDate = td.TxnDate,
-                            ValueDate = td.ValueDate,
-                            Description = td.Description,
-                            ChequeNumber = td.ChequeNumber,
-                            Amount = td.Amount,
-                            Debit = td.Debit,
-                            Credit = td.Credit,
-                            Balance = td.Balance
-                        }).ToList();
-
-                        return Ok(responseList);
-                    }
-                    else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
-                    {
-                        // Handle redirect by extracting the new location from headers
-                        var redirectUrl = response.Headers.Location;
-                        // Make a new request to the redirected URL
-                        response = await client.PostAsync(redirectUrl, null);
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            var Extarctedvalues = await _context.ExtractTransactionData.Where(e => e.Docid == docid).ToListAsync();
-
-                            return Ok(Extarctedvalues);
-                        }
-                    }
-                    else
-                    {
-                        var responseContent = await response.Content.ReadAsStringAsync();
-                        return StatusCode((int)response.StatusCode, responseContent);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log the exception
-                    //_logger.LogError($"Exception occurred: {ex.Message}");
-                    return StatusCode(500, "Internal Server Error");
-                }
+                response.Add(field, entity.GetType().GetProperty(field)?.GetValue(entity));
             }
 
-            return BadRequest();
+            return response;
         }
 
-        [HttpPost]
+
+        [Authorize]
+        [HttpPost("InsertLoanDetails")]
         public async Task<ActionResult> InsertLoanDetails(LoanDetailsMod req)
         {
             try
             {
                 if (req != null)
                 {
-                    
-                    
 
-                        // DocubotDbContext _context = new();
-                        db.InsertIntoLoanDetails(req);
+                    if (await _context.Loandetails.AnyAsync(u => u.Applno == req.Applno))
+                    {
+                        return Conflict("User with the same username or email already exists.");
+                    }
+                    // DocubotDbContext _context = new();
+                    db.InsertIntoLoanDetails(req);
                         
                     var request = new Rating_Models.Loandetail
                     {
@@ -317,6 +408,8 @@ namespace DocuBot_Api.Controllers
                         Emistartdate = req.Emistartdate
                     };
 
+                    
+
                     await _context.Loandetails.AddAsync(request);
                     await _context.SaveChangesAsync();
 
@@ -336,7 +429,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-
+        [Authorize]
         [HttpPost("Rating")]
         public async Task<ActionResult> Rating(string applno)
         {
@@ -360,34 +453,7 @@ namespace DocuBot_Api.Controllers
                     if (response.IsSuccessStatusCode)
 
                     {
-                        var ExtarctRIE = await _context.Loandetails
-                        .Where(e => e.Applno == applno)
-                        .Select(e => new { e.Rating, e.Income, e.Expenses })
-                        .FirstOrDefaultAsync();
-
-                        if (ExtarctRIE == null)
-                        {
-                            return NotFound();
-                        }
-
-                        // Update SQL Server table based on PostgreSQL data
-                        var sqlServerEntity = await _docubotDbContext.LoanDetailsDemo
-                            .FirstOrDefaultAsync(e => e.Applno == applno);
-
-                        if (sqlServerEntity != null)
-                        {
-                            // Update fields in the SQL Server entity
-                            sqlServerEntity.Rating = ExtarctRIE.Rating;
-                            sqlServerEntity.Income = (int?)ExtarctRIE.Income;
-                            sqlServerEntity.Expenses = (int?)ExtarctRIE.Expenses;
-
-                            // Save changes to the SQL Server database
-                            _docubotDbContext.Update(sqlServerEntity);
-                            _docubotDbContext.SaveChanges();
-                        }
-
-
-
+                          var Upadtesql = GetFields(applno);
 
                         try
                         {
@@ -466,13 +532,7 @@ namespace DocuBot_Api.Controllers
                                                 lndet.Emistartdate,
                                                 lndet.Rating,
                                                 lndet.Dependents,
-                                                lndet.Expenses,
-
-
-                                                // Properly structure the "Rating Calculation" object
-                                                ratingCalcObject
-
-                                                // Include other properties as needed
+                                                lndet.Expenses
                                             },
 
                                             scheduleHeading = "Loan Schedule",

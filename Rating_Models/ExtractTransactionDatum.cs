@@ -31,5 +31,9 @@ public partial class ExtractTransactionDatum
 
     public string? InitBr { get; set; }
 
+    public string? Bankname { get; set; }
+
+    public string? RemitterBranch { get; set; }
+
     public virtual Loadedfile Doc { get; set; } = null!;
 }

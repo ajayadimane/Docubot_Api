@@ -1,5 +1,6 @@
 using DocuBot_Api.Context;
 using DocuBot_Api.Models_Pq;
+using DocuBot_Api.Models_Pq.ResponseModels;
 using DocuBot_Api.Rating_Models;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using Irony.Ast;
@@ -18,6 +19,15 @@ builder.Services.AddDbContext<DocubotDbContext>(options => options.UseSqlServer(
 
 builder.Services.AddDbContext<RatingContext>(options =>
 options.UseNpgsql(builder.Configuration.GetConnectionString("DocubotContext")));
+
+builder.Services.Configure<BankResponseConfig>(builder.Configuration.GetSection("Banks"));
+
+builder.Services.Configure<BankConfiguration>(builder.Configuration.GetSection("BankConfigurations"));
+
+builder.Services.Configure<TransBankConfig>(builder.Configuration.GetSection("TransBankConfig"));
+
+
+
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.Configuration["ApiHost:BaseUrl"]), Timeout = TimeSpan.FromMinutes(30) });
 
