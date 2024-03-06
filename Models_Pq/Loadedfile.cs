@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DocuBot_Api.Rating_Models;
+using System;
 using System.Collections.Generic;
 
 namespace DocuBot_Api.Models_Pq;

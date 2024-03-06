@@ -31,6 +31,8 @@ public partial class RatingContext : DbContext
 
     public virtual DbSet<Loantype> Loantypes { get; set; }
 
+    public virtual DbSet<User> Users { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
         => optionsBuilder.UseNpgsql("Host=10.10.20.51;Database=rating;Username=postgres;Password=postgres");
@@ -68,6 +70,9 @@ public partial class RatingContext : DbContext
                 .HasColumnName("id");
             entity.Property(e => e.Amount).HasColumnType("character varying");
             entity.Property(e => e.Balance).HasColumnType("character varying");
+            entity.Property(e => e.Bankname)
+                .HasColumnType("character varying")
+                .HasColumnName("bankname");
             entity.Property(e => e.ChequeNumber).HasColumnType("character varying");
             entity.Property(e => e.Credit).HasColumnType("character varying");
             entity.Property(e => e.Debit).HasColumnType("character varying");
@@ -76,6 +81,7 @@ public partial class RatingContext : DbContext
             entity.Property(e => e.InitBr)
                 .HasColumnType("character varying")
                 .HasColumnName("Init.Br");
+            entity.Property(e => e.RemitterBranch).HasColumnType("character varying");
             entity.Property(e => e.SerialNo).HasColumnType("character varying");
             entity.Property(e => e.TransactionId).HasColumnType("character varying");
             entity.Property(e => e.TxnDate)
@@ -109,6 +115,7 @@ public partial class RatingContext : DbContext
             entity.Property(e => e.Accountno)
                 .HasMaxLength(25)
                 .HasColumnName("accountno");
+            entity.Property(e => e.Accountstatementdate).HasColumnName("accountstatementdate");
             entity.Property(e => e.Accountstatus).HasColumnName("accountstatus");
             entity.Property(e => e.Accounttype).HasColumnName("accounttype");
             entity.Property(e => e.Address)
@@ -117,6 +124,7 @@ public partial class RatingContext : DbContext
             entity.Property(e => e.Address1).HasColumnName("address1");
             entity.Property(e => e.Address2).HasColumnName("address2");
             entity.Property(e => e.Address3).HasColumnName("address3");
+            entity.Property(e => e.Address4).HasColumnName("address4");
             entity.Property(e => e.Balanceamount)
                 .HasMaxLength(50)
                 .HasColumnName("balanceamount");
@@ -139,6 +147,7 @@ public partial class RatingContext : DbContext
                 .HasMaxLength(50)
                 .HasColumnName("cifno");
             entity.Property(e => e.City).HasColumnName("city");
+            entity.Property(e => e.Clearedbalance).HasColumnName("clearedbalance");
             entity.Property(e => e.Currency).HasColumnName("currency");
             entity.Property(e => e.Date)
                 .HasColumnType("timestamp without time zone")
@@ -151,6 +160,7 @@ public partial class RatingContext : DbContext
                 .HasColumnName("ifsc");
             entity.Property(e => e.Interestrate).HasColumnName("interestrate");
             entity.Property(e => e.Jointholder).HasColumnName("jointholder");
+            entity.Property(e => e.Jointholders).HasColumnName("jointholders");
             entity.Property(e => e.Micrcode)
                 .HasMaxLength(50)
                 .HasColumnName("micrcode");
@@ -160,11 +170,13 @@ public partial class RatingContext : DbContext
             entity.Property(e => e.Nominationregistered)
                 .HasMaxLength(10)
                 .HasColumnName("nominationregistered");
+            entity.Property(e => e.Odlimit).HasColumnName("odlimit");
             entity.Property(e => e.Opendate).HasColumnName("opendate");
             entity.Property(e => e.Pan).HasColumnName("pan");
             entity.Property(e => e.Phone).HasColumnName("phone");
             entity.Property(e => e.Pincode).HasColumnName("pincode");
             entity.Property(e => e.Productcode).HasColumnName("productcode");
+            entity.Property(e => e.Producttype).HasColumnName("producttype");
             entity.Property(e => e.Scheme).HasColumnName("scheme");
             entity.Property(e => e.State).HasColumnName("state");
             entity.Property(e => e.Statementdate)
@@ -175,6 +187,7 @@ public partial class RatingContext : DbContext
                 .HasColumnName("statementperiod");
             entity.Property(e => e.Statementperiodfrom).HasColumnName("statementperiodfrom");
             entity.Property(e => e.Statementperiodto).HasColumnName("statementperiodto");
+            entity.Property(e => e.Unclearedamount).HasColumnName("unclearedamount");
 
             entity.HasOne(d => d.Doc).WithMany(p => p.ExtractionKeyValues)
                 .HasForeignKey(d => d.Docid)
@@ -308,6 +321,27 @@ public partial class RatingContext : DbContext
             entity.Property(e => e.Loantype1)
                 .HasMaxLength(5)
                 .HasColumnName("loantype");
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PK_user");
+
+            entity.ToTable("users");
+
+            entity.Property(e => e.Id)
+                .UseIdentityAlwaysColumn()
+                .HasColumnName("id");
+            entity.Property(e => e.Email)
+                .HasColumnType("character varying")
+                .HasColumnName("email");
+            entity.Property(e => e.Name)
+                .HasMaxLength(100)
+                .HasColumnName("name");
+            entity.Property(e => e.Password).HasMaxLength(8);
+            entity.Property(e => e.Username)
+                .HasMaxLength(20)
+                .HasColumnName("username");
         });
 
         OnModelCreatingPartial(modelBuilder);

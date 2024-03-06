@@ -2,9 +2,9 @@
 {
     public class UploadFilesResModel
     {
-        public int Id { get; set; }
+        public int Lfid { get; set; }
 
-        public string? Docname { get; set; }
+      
 
         public string? Applno { get; set; }
     }
@@ -37,37 +37,50 @@
     {
         public string? Bankname { get; set; }
 
-        public string Accountholder { get; set; } = null!;
+        public string Accountholder { get; set; }
 
-        public string? Address { get; set; }
+        public string Address { get; set; }
 
         public DateTime? Date { get; set; }
 
-        public string Accountno { get; set; } = null!;
+        public string Accountno { get; set; }
 
-        public string? Accountdescription { get; set; }
+        public string Accountdescription { get; set; }
 
-        public string? Branch { get; set; }
+        public string Branch { get; set; }
 
-        //public float? Modbalance { get; set; }
+        public float? Modbalance { get; set; }
 
-       // public string? Cifno { get; set; }
+       public string? Cifno { get; set; }
 
-        public string? Ifsc { get; set; }
+        public string Ifsc { get; set; }
 
-        public string? Micrcode { get; set; }
-        public float? Drawingpower { get; set; }
-        public float? Interestrate { get; set; }
-        // public string? Cif { get; set; }
+        public string Micrcode { get; set; }
+        public float Drawingpower { get; set; }
+        public float Interestrate { get; set; }
+        public string? Cif { get; set; }
 
-        public string? Nominationregistered { get; set; }
+        public string Nominationregistered { get; set; }
 
-        public string? Balanceason { get; set; }
+        public string Balanceason { get; set; }
 
-        public string? Balanceamount { get; set; }
+        public string Balanceamount { get; set; }
 
-        public string? Statementperiod { get; set; }
+        public string Statementperiod { get; set; }
 
         
     }
+
+    public class BankConfiguration
+    {
+        public List<string> Fields { get; set; }
+    }
+
+    public class TransBankConfig
+    {
+        public List<string> Fields { get; set; }
+    }
+
+
+
 }

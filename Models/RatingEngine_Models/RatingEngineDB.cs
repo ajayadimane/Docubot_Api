@@ -1,4 +1,5 @@
 ﻿using DocuBot_Api.Context;
+using DocumentFormat.OpenXml.Drawing;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 
@@ -82,8 +83,9 @@ namespace DocuBot_Api.Models.RatingEngine_Models
                     //Loanpurpose = loanDetails.Loanpurpose
 
                 };
+
                 _context.LoanDetailsDemo.Add(lon);
-                _context.SaveChanges();
+                 _context.SaveChanges();
             }
             catch (Exception ex)
             { }

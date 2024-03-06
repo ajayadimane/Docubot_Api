@@ -97,5 +97,19 @@ public partial class ExtractionKeyValue
 
     public string? Jointholder { get; set; }
 
+    public string? Address4 { get; set; }
+
+    public string? Jointholders { get; set; }
+
+    public string? Odlimit { get; set; }
+
+    public string? Accountstatementdate { get; set; }
+
+    public string? Producttype { get; set; }
+
+    public string? Clearedbalance { get; set; }
+
+    public string? Unclearedamount { get; set; }
+
     public virtual Loadedfile Doc { get; set; } = null!;
 }

@@ -1,5 +1,6 @@
 ﻿using DocuBot_Api.Context;
 using DocuBot_Api.Models.User;
+using DocuBot_Api.Rating_Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -17,9 +18,10 @@ namespace DocuBot_Api.Controllers
     public class TokenController : ControllerBase
     {
         public IConfiguration _configuration;
-        private readonly DocubotDbContext _context;
+        private readonly RatingContext _context;
+        
 
-        public TokenController(IConfiguration config, DocubotDbContext context)
+        public TokenController(IConfiguration config, RatingContext context)
         {
             _configuration = config;
             _context = context;
@@ -27,13 +29,21 @@ namespace DocuBot_Api.Controllers
 
         private LoginModel Authentication(LoginModel userData)
         {
-            LoginModel _user = null;
-            if(userData.Username == "admin" && userData.Password == "int123$%^")
+            // Query the database for the user with the provided username and password
+            var userFromDatabase = _context.Users
+                .FirstOrDefault(u => u.Username == userData.Username && u.Password == userData.Password);
+
+            // If a matching user is found, create a LoginModel object for the authenticated user
+            if (userFromDatabase != null)
             {
-                _user = new LoginModel { Username = "Ajayy" };
+                return new LoginModel { Username = userFromDatabase.Username };
             }
-            return _user;
+
+            // If no matching user is found, return null or throw an exception indicating authentication failure
+            return null;
         }
+
+
 
         private string GenerateToken(LoginModel userData)
         {
@@ -66,63 +76,86 @@ namespace DocuBot_Api.Controllers
         }
 
 
-    //    [HttpPost]
-    //    public async Task<IActionResult> Post(UserInfo _userData)
-    //    {
-    //        if (_userData != null && _userData.UserName != null && _userData.Password != null)
-    //        {
-    //            var user = await GetUser(_userData.UserName, _userData.Password);
+        //    [HttpPost]
+        //    public async Task<IActionResult> Post(UserInfo _userData)
+        //    {
+        //        if (_userData != null && _userData.UserName != null && _userData.Password != null)
+        //        {
+        //            var user = await GetUser(_userData.UserName, _userData.Password);
 
-    //            if (user != null)
-    //            {
-    //                //create claims details based on the user information
-    //                var claims = new[] {
-    //                    new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
-    //                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-    //                    new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.ToString()),
-    //                    new Claim("UserId", user.UserId.ToString()),
-    //                    new Claim("DisplayName", user.DisplayName),
-    //                    new Claim("UserName", user.UserName),
-    //                    new Claim("Email", user.Email)
-    //                };
+        //            if (user != null)
+        //            {
+        //                //create claims details based on the user information
+        //                var claims = new[] {
+        //                    new Claim(JwtRegisteredClaimNames.Sub, _configuration["Jwt:Subject"]),
+        //                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+        //                    new Claim(JwtRegisteredClaimNames.Iat, DateTime.UtcNow.ToString()),
+        //                    new Claim("UserId", user.UserId.ToString()),
+        //                    new Claim("DisplayName", user.DisplayName),
+        //                    new Claim("UserName", user.UserName),
+        //                    new Claim("Email", user.Email)
+        //                };
 
-    //                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-    //                var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-    //                var token = new JwtSecurityToken(
-    //                    _configuration["Jwt:Issuer"],
-    //                    _configuration["Jwt:Audience"],
-    //                    claims,
-    //                    expires: DateTime.UtcNow.AddMinutes(10),
-    //                    signingCredentials: signIn);
+        //                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+        //                var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        //                var token = new JwtSecurityToken(
+        //                    _configuration["Jwt:Issuer"],
+        //                    _configuration["Jwt:Audience"],
+        //                    claims,
+        //                    expires: DateTime.UtcNow.AddMinutes(10),
+        //                    signingCredentials: signIn);
 
-    //                return Ok(new JwtSecurityTokenHandler().WriteToken(token));
+        //                return Ok(new JwtSecurityTokenHandler().WriteToken(token));
 
-    //            }
-    //            else
-    //            {
-    //                return BadRequest("Invalid credentials");
-    //            }
-    //        }
-    //        else
-    //        {
-    //            return BadRequest();
-    //        }
-    //    }
+        //            }
+        //            else
+        //            {
+        //                return BadRequest("Invalid credentials");
+        //            }
+        //        }
+        //        else
+        //        {
+        //            return BadRequest();
+        //        }
+        //    }
 
-    //    private async Task<UserInfo> GetUser(string username, string password)
-    //    {
-    //        return await _context.UserInfos.FirstOrDefaultAsync(u => u.UserName == username && u.Password == password);
-    //    }
+        //    private async Task<UserInfo> GetUser(string username, string password)
+        //    {
+        //        return await _context.UserInfos.FirstOrDefaultAsync(u => u.UserName == username && u.Password == password);
+        //    }
 
-    //    [HttpPost("Add User")]
-    //    public async Task<IActionResult> AddUser(UserInfo userInfo)
-    //    {
-    //        var User = await _context.UserInfos.AddAsync(userInfo);
-    //        _context.SaveChanges();
-    //        return Ok(User);
-    //    }
+        //    [HttpPost("Add User")]
+        //    public async Task<IActionResult> AddUser(UserInfo userInfo)
+        //    {
+        //        var User = await _context.UserInfos.AddAsync(userInfo);
+        //        _context.SaveChanges();
+        //        return Ok(User);
+        //    }
 
+        [HttpPost("InsertUser")]
+        public async Task<ActionResult> InsertUser([FromBody] User user)
+        {
+            try
+            {
+                // Check if a user with the same username or email already exists
+                if (await _context.Users.AnyAsync(u => u.Username == user.Username || u.Email == user.Email))
+                {
+                    return Conflict("User with the same username or email already exists.");
+                }
 
+                // Add the user to the context and save changes
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                return Ok("User details inserted successfully.");
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return an internal server error response
+                //_logger.LogError($"Exception occurred: {ex.Message}");
+                return StatusCode(500, "Internal Server Error");
+            }
+        }
 
     }
 }
