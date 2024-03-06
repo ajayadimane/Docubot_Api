@@ -47,7 +47,7 @@ namespace DocuBot_Api.Controllers
             return Ok(res);
         }
 
-
+        [Authorize]
         [HttpPost("UploadDocument")]
         public async Task<ActionResult> UploadPdf(IFormFileCollection files, string Applno)
         {
@@ -229,7 +229,9 @@ namespace DocuBot_Api.Controllers
                     {
                         var address1 = entity.GetType().GetProperty("Address1")?.GetValue(entity) as string;
                         var address2 = entity.GetType().GetProperty("Address2")?.GetValue(entity) as string;
-                        address = $"{address} {address1} {address2}".Trim();
+                        var address3 = entity.GetType().GetProperty("Address3")?.GetValue(entity) as string;
+                        var address4 = entity.GetType().GetProperty("Address4")?.GetValue(entity) as string;
+                        address = $"{address} {address1} {address2} {address3} {address4}".Trim();
                     }
 
                     response.Add("Address", address);
