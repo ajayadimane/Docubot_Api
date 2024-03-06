@@ -381,7 +381,7 @@ namespace DocuBot_Api.Controllers
 
                     if (await _context.Loandetails.AnyAsync(u => u.Applno == req.Applno))
                     {
-                        return Conflict("User with the same username or email already exists.");
+                        return Conflict("LoanDetails with Same Applno already exists in Database.");
                     }
                     // DocubotDbContext _context = new();
                     db.InsertIntoLoanDetails(req);
