@@ -99,7 +99,7 @@ namespace DocuBot_Api.Controllers
                         {
                             
                             Applno = Applno,
-                            Lfid = InsertLoadedFilesModel.Id
+                            Docid = InsertLoadedFilesModel.Id
                             
                         });
 
@@ -455,10 +455,34 @@ namespace DocuBot_Api.Controllers
                     if (response.IsSuccessStatusCode)
 
                     {
-                          var Upadtesql = GetFields(applno);
+                        var loanDetails = await _context.Loandetails
+                        .Where(e => e.Applno == applno)
+                        .Select(e => new { e.Rating, e.Income, e.Expenses })
+                        .FirstOrDefaultAsync();
 
-                        try
+                        if (loanDetails == null)
                         {
+                            return NotFound();
+                        }
+
+                        // Update SQL Server table based on PostgreSQL data
+                        var sqlServerEntity = await _docubotDbContext.LoanDetailsDemo
+                            .FirstOrDefaultAsync(e => e.Applno == applno);
+
+                        if (sqlServerEntity != null)
+                        {
+                            // Update fields in the SQL Server entity
+                            sqlServerEntity.Rating = loanDetails.Rating;
+                            sqlServerEntity.Income = (int?)loanDetails.Income;
+                            sqlServerEntity.Expenses = (int?)loanDetails.Expenses;
+
+                            // Save changes to the SQL Server database
+                            _docubotDbContext.Update(sqlServerEntity);
+                            _docubotDbContext.SaveChanges();
+                        }
+
+                         try
+                         {
                             string connectionString = _configuration.GetConnectionString("myconn");
 
                             using (SqlConnection connection = new SqlConnection(connectionString))
@@ -499,7 +523,7 @@ namespace DocuBot_Api.Controllers
                                     LoanDetails lndet = db.GetLoanDetails(applno);
                                     if (lndet != null)
                                     {
-                                        var ratingCalcObject = JsonConvert.DeserializeObject<RatingCalculationContainer>(lndet.RatingCalc);
+                                        //var ratingCalcObject = JsonConvert.DeserializeObject<RatingCalculationContainer>(lndet.RatingCalc);
                                         return new JsonResult(new
                                         {
                                             code = "1",
