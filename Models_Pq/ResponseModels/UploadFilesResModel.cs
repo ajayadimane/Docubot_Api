@@ -2,10 +2,7 @@
 {
     public class UploadFilesResModel
     {
-        public int Lfid { get; set; }
-
-      
-
+        public int Docid { get; set; }
         public string? Applno { get; set; }
     }
 

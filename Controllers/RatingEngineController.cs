@@ -38,7 +38,7 @@ namespace DocuBot_Api.Controllers
 
                 if (lndet != null)
                 {
-                    var ratingCalcObject = JsonConvert.DeserializeObject<RatingCalculationContainer>(lndet.RatingCalc);
+                    //var ratingCalcObject = JsonConvert.DeserializeObject<RatingCalculationContainer>(lndet.RatingCalc);
                     return new JsonResult(new
                     {
                         code = "1",
@@ -77,7 +77,7 @@ namespace DocuBot_Api.Controllers
                            
                             
                                 // Properly structure the "Rating Calculation" object
-                              ratingCalcObject
+                              //ratingCalcObject
                             
                             // Include other properties as needed
                         },
