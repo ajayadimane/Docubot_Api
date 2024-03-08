@@ -14,8 +14,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using System.Data;
+using System.Globalization;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace DocuBot_Api.Controllers
 {
@@ -47,77 +49,179 @@ namespace DocuBot_Api.Controllers
             return Ok(res);
         }
 
-        [Authorize]
-        [HttpPost("UploadDocument")]
-        public async Task<ActionResult> UploadPdf(IFormFileCollection files, string Applno)
-        {
-            if (files != null && files.Count > 0)
-            {
-                try
-                {
-                    // Validate the loanaccno parameter as needed
-
-                    // Get the working directory of the application
-                    string workingDirectory = Directory.GetCurrentDirectory();
-
-                    // Create a folder for the loanaccno in the UploadedFiles directory
-                    string loanaccnoFolder = Path.Combine(workingDirectory, "UploadedFiles", Applno);
-                    Directory.CreateDirectory(loanaccnoFolder);
-
-                    // List to store results for each file
-                    var results = new List<object>();
-
-                    // Iterate through each uploaded file
-                    for (int i = 0; i < files.Count; i++)
-                    {
-                        var file = files[i];
-
-                        // Define input file name with loanaccno and index
-                        string inputFileName = $"{Applno}_file{i + 1}{Path.GetExtension(file.FileName)}";
-
-                        // Save the input file in the loanaccno folder
-                        string inputFilepath = Path.Combine(loanaccnoFolder, inputFileName);
-                        using (var inputStream = new FileStream(inputFilepath, FileMode.Create))
-                        {
-                            await file.CopyToAsync(inputStream);
-                        }
-                        //var ResFilepath = Path.Combine("/rating/UploadFiles/", file.FileName);
-                        var ResFilepath = Path.Combine("/rating/UploadFiles/", file.FileName);
 
 
 
-                        var InsertLoadedFilesModel = new Rating_Models.Loadedfile
-                        { 
-                            Docname = ResFilepath,
-                            Applno = Applno
-                        };
+        //[Authorize]
+        //[HttpPost("UploadDocument")]
+        //public async Task<ActionResult> UploadPdf(IFormFileCollection files, string Applno)
+        //{
+        //    if (files != null && files.Count > 0)
+        //    {
+        //        try
+        //        {
+        //            // Validate the loanaccno parameter as needed
 
-                        await _context.Loadedfiles.AddAsync(InsertLoadedFilesModel);
-                        await _context.SaveChangesAsync();
+        //            // Get the working directory of the application
+        //            string workingDirectory = Directory.GetCurrentDirectory();
+
+        //            // Create a folder for the loanaccno in the UploadedFiles directory
+        //            string loanaccnoFolder = Path.Combine(workingDirectory, "UploadedFiles", Applno);
+        //            Directory.CreateDirectory(loanaccnoFolder);
+
+        //            // List to store results for each file
+        //            var results = new List<object>();
+
+        //            // Iterate through each uploaded file
+        //            for (int i = 0; i < files.Count; i++)
+        //            {
+        //                var file = files[i];
+
+        //                // Define input file name with loanaccno and index
+        //                string inputFileName = $"{Applno}_file{i + 1}{Path.GetExtension(file.FileName)}";
+
+        //                // Save the input file in the loanaccno folder
+        //                string inputFilepath = Path.Combine(loanaccnoFolder, inputFileName);
+        //                using (var inputStream = new FileStream(inputFilepath, FileMode.Create))
+        //                {
+        //                    await file.CopyToAsync(inputStream);
+        //                }
+        //                //var ResFilepath = Path.Combine("/rating/UploadFiles/", file.FileName);
+        //                var ResFilepath = Path.Combine("/rating/UploadFiles/", file.FileName);
+
+
+
+        //                var InsertLoadedFilesModel = new Rating_Models.Loadedfile
+        //                { 
+        //                    Docname = ResFilepath,
+        //                    Applno = Applno
+        //                };
+
+        //                await _context.Loadedfiles.AddAsync(InsertLoadedFilesModel);
+        //                await _context.SaveChangesAsync();
                        
+        //                results.Add(new UploadFilesResModel
+        //                {
+                            
+        //                    Applno = Applno,
+        //                    Docid = InsertLoadedFilesModel.Id
+                            
+        //                });
+
+        //            }
+                  
+        //            return Ok(results);
+                   
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            return StatusCode(500, ex.Message);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        return BadRequest("No files uploaded.");
+        //    }
+        //}
+
+        [Authorize]
+        [HttpPost("UplaodDocumnet")]
+        public async Task<ActionResult> UploadDocument(IFormFileCollection files, string applno)
+        {
+            string baseUrl = "https://demo.botaiml.com";
+            string endpoint = "/extract/uploaddocument/";
+
+            if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(endpoint))
+            {
+                return BadRequest("Invalid base URL or endpoint.");
+            }
+
+            try
+            {
+                using var client = new HttpClient
+                {
+                    BaseAddress = new Uri(baseUrl)
+                };
+
+                // Create a new instance of MultipartFormDataContent
+                using var formData = new MultipartFormDataContent();
+
+                // Add Applno as a string content
+                formData.Add(new StringContent(applno), "applno");
+
+                var results = new List<object>();
+                // Add each file in the collection to the form data
+                foreach (var file in files)
+                {
+                    // Add the file content to the form data
+                    formData.Add(new StreamContent(file.OpenReadStream())
+                    {
+                        Headers =
+                        {
+                          ContentLength = file.Length,
+                           ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType)
+                        }
+                    }, "files", file.FileName);
+
+
+                    // Append docid to the endpoint URL
+                    string requestUrl = $"{baseUrl}{endpoint}?applno={applno}";
+
+                    // Post the form data to the API
+                    var response = await client.PostAsync(requestUrl, formData);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var docid = _context.Loadedfiles
+                       .Where(e => e.Applno == applno)
+                       .Select(e => e.Id)
+                       .FirstOrDefault();
+
+
+
                         results.Add(new UploadFilesResModel
                         {
-                            
-                            Applno = Applno,
-                            Docid = InsertLoadedFilesModel.Id
-                            
+
+                            Applno = applno,
+                            Docid = docid
+
                         });
 
                     }
-                  
-                    return Ok(results);
-                   
+                    else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
+                    {
+                        // Handle redirect by extracting the new location from headers
+                        var redirectUrl = response.Headers.Location;
+                        // Make a new request to the redirected URL
+                        response = await client.PostAsync(redirectUrl, formData);
+
+                        if (response.IsSuccessStatusCode)
+                        {
+                            var responseContent = await response.Content.ReadAsStringAsync();
+                            return Ok(responseContent);
+                        }
+                    }
+                    else
+                    {
+                        // Handle other cases where the response status code is not success or redirect
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        return StatusCode((int)response.StatusCode, responseContent);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    return StatusCode(500, ex.Message);
-                }
+
+              return Ok(results);
+
             }
-            else
+            catch (Exception ex)
             {
-                return BadRequest("No files uploaded.");
+                // Log the exception
+                //_logger.LogError($"Exception occurred: {ex.Message}");
+                return StatusCode(500, "Internal Server Error");
             }
+
+            return BadRequest("Unexpected error occurred");
         }
+
 
 
         [Authorize]
@@ -175,6 +279,8 @@ namespace DocuBot_Api.Controllers
                         return NotFound();
                     }
 
+                    ConvertDatesToDDMMYYYY(bankDetails);
+
                     return Ok(bankDetails);
                 
                 }
@@ -208,6 +314,8 @@ namespace DocuBot_Api.Controllers
         }
 
 
+
+
         private static object GenerateResponse(ExtractionKeyValue entity, IEnumerable<string> fields)
         {
             var response = new System.Dynamic.ExpandoObject() as IDictionary<string, object>;
@@ -217,6 +325,9 @@ namespace DocuBot_Api.Controllers
 
             // Check if Bankaddress1 and Bankaddress2 are in the fields list
             var mergeBankAddressFields = fields.Contains("Bankaddress1") && fields.Contains("Bankaddress2");
+
+            // Check if Statementperiod is in the fields list
+            var StatementPeriodFields = fields.Contains("Statementperiod");
 
             foreach (var field in fields)
             {
@@ -250,13 +361,53 @@ namespace DocuBot_Api.Controllers
 
                     response.Add("Bankaddress", bankAddress);
                 }
-                else if (field != "Bankaddress1" && field != "Bankaddress2" && field != "Address1" && field != "Address2")
+                else if (field == "Statementperiod")
+                {
+                    var statementPeriod = entity.GetType().GetProperty("Statementperiod")?.GetValue(entity) as string;
+
+                    // Handle different date formats and split into Statementperiodfrom and Statementperiodto
+                    if (!string.IsNullOrEmpty(statementPeriod))
+                    {
+                        var regexMatch = Regex.Match(statementPeriod, @"(\d{1,2}[ /-]\w{3}[ /-]\d{4})[^\d]*(\d{1,2}[ /-]\w{3}[ /-]\d{4})");
+
+                        if (regexMatch.Success)
+                        {
+                            var statementPeriodFrom = DateTime.ParseExact(regexMatch.Groups[1].Value, "dd MMM yyyy", CultureInfo.InvariantCulture);
+                            var statementPeriodTo = DateTime.ParseExact(regexMatch.Groups[2].Value, "dd MMM yyyy", CultureInfo.InvariantCulture);
+
+                            response.Add("Statementperiodfrom", statementPeriodFrom.ToString("d MMM yyyy"));
+                            response.Add("Statementperiodto", statementPeriodTo.ToString("d MMM yyyy"));
+                        }
+                        else
+                        {
+                            // If the regex match fails, just add the original value
+                            response.Add("Statementperiod", statementPeriod);
+                        }
+                    }
+                }
+                else if (field != "Bankaddress1" && field != "Bankaddress2" && field != "Address1" && field != "Address2" && field != "Address3" && field != "Address4")
                 {
                     response.Add(field, entity.GetType().GetProperty(field)?.GetValue(entity));
                 }
             }
 
             return response;
+        }
+
+
+        private void ConvertDatesToDDMMYYYY(object obj)
+        {
+            foreach (var property in obj.GetType().GetProperties())
+            {
+                if (property.PropertyType == typeof(DateTime))
+                {
+                    DateTime? dateValue = (DateTime?)property.GetValue(obj);
+                    if (dateValue.HasValue)
+                    {
+                        property.SetValue(obj, dateValue.Value.ToString("dd-MM-yyyy"));
+                    }
+                }
+            }
         }
 
 
