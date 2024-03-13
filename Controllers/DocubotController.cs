@@ -224,7 +224,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-        [Authorize]
+        //[Authorize]
         [HttpPost("ExtractKeyVal")]
         public async Task<ActionResult> ExtractKeyval(int docid)
         {
@@ -327,7 +327,7 @@ namespace DocuBot_Api.Controllers
             var mergeBankAddressFields = fields.Contains("Bankaddress1") && fields.Contains("Bankaddress2");
 
             // Check if Statementperiod is in the fields list
-            var StatementPeriodFields = fields.Contains("Statementperiod");
+            var statementPeriodFields = fields.Contains("Statementperiod");
 
             foreach (var field in fields)
             {
@@ -356,7 +356,9 @@ namespace DocuBot_Api.Controllers
                     {
                         var bankAddress1 = entity.GetType().GetProperty("Bankaddress1")?.GetValue(entity) as string;
                         var bankAddress2 = entity.GetType().GetProperty("Bankaddress2")?.GetValue(entity) as string;
-                        bankAddress = $"{bankAddress} {bankAddress1} {bankAddress2}".Trim();
+                        var bankAddress3 = entity.GetType().GetProperty("Bankaddress3")?.GetValue(entity) as string;
+
+                        bankAddress = $"{bankAddress} {bankAddress1} {bankAddress2} {bankAddress3}".Trim();
                     }
 
                     response.Add("Bankaddress", bankAddress);
@@ -368,24 +370,111 @@ namespace DocuBot_Api.Controllers
                     // Handle different date formats and split into Statementperiodfrom and Statementperiodto
                     if (!string.IsNullOrEmpty(statementPeriod))
                     {
-                        var regexMatch = Regex.Match(statementPeriod, @"(\d{1,2}[ /-]\w{3}[ /-]\d{4})[^\d]*(\d{1,2}[ /-]\w{3}[ /-]\d{4})");
+                        DateTime statementPeriodFrom, statementPeriodTo;
 
-                        if (regexMatch.Success)
+                        if (Regex.IsMatch(statementPeriod, @"(\d{2})-(\d{2})-(\d{4}) to (\d{2})-(\d{2})-(\d{4})")) // Match format "dd-mm-yyyy to dd-mm-yyyy"
                         {
-                            var statementPeriodFrom = DateTime.ParseExact(regexMatch.Groups[1].Value, "dd MMM yyyy", CultureInfo.InvariantCulture);
-                            var statementPeriodTo = DateTime.ParseExact(regexMatch.Groups[2].Value, "dd MMM yyyy", CultureInfo.InvariantCulture);
+                            var dates = statementPeriod.Split("to");
+
+                            statementPeriodFrom = DateTime.ParseExact(dates[0].Trim(), "dd-MM-yyyy", CultureInfo.InvariantCulture);
+                            statementPeriodTo = DateTime.ParseExact(dates[1].Trim(), "dd-MM-yyyy", CultureInfo.InvariantCulture);
 
                             response.Add("Statementperiodfrom", statementPeriodFrom.ToString("d MMM yyyy"));
                             response.Add("Statementperiodto", statementPeriodTo.ToString("d MMM yyyy"));
                         }
+                        else if (Regex.IsMatch(statementPeriod, @"Account\s+Statement\s+from\s+(\d{1,2})\s*(\w+)\s*(\d{4})\s*to\s*(\d{1,2})\s*(\w+)\s*(\d{4})")) // Match format "Account Statement from dd MMM yyyy to dd MMM yyyy"
+                        {
+                            var matches = Regex.Match(statementPeriod, @"Account\s+Statement\s+from\s+(\d{1,2})\s*(\w+)\s*(\d{4})\s*to\s*(\d{1,2})\s*(\w+)\s*(\d{4})");
+
+                            var startDay = matches.Groups[1].Value;
+                            var startMonth = matches.Groups[2].Value;
+                            var startYear = matches.Groups[3].Value;
+
+                            var endDay = matches.Groups[4].Value;
+                            var endMonth = matches.Groups[5].Value;
+                            var endYear = matches.Groups[6].Value;
+
+                            var startDateString = $"{startDay} {startMonth} {startYear}";
+                            var endDateString = $"{endDay} {endMonth} {endYear}";
+
+                            if (DateTime.TryParseExact(startDateString, "d MMM yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodFrom) &&
+                                DateTime.TryParseExact(endDateString, "d MMM yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodTo))
+                            {
+                                response.Add("Statementperiodfrom", statementPeriodFrom.ToString("d MMM yyyy"));
+                                response.Add("Statementperiodto", statementPeriodTo.ToString("d MMM yyyy"));
+                            }
+                            else
+                            {
+                                // If parsing fails, add the original value
+                                response.Add("Statementperiod", statementPeriod);
+                            }
+                        }
+                        else if (Regex.IsMatch(statementPeriod, @"([a-zA-Z]+)\s*(\d{2})[,/]\s*(\d{4})\s*to\s*([a-zA-Z]+)\s*(\d{2})[,/]\s*(\d{4})")) // Match format "MonthDD,YYYY to MonthDD,YYYY" or "Month DD, YYYY to Month DD, YYYY"
+                        {
+                            var matches = Regex.Match(statementPeriod, @"([a-zA-Z]+)\s*(\d{2})[,/]\s*(\d{4})\s*to\s*([a-zA-Z]+)\s*(\d{2})[,/]\s*(\d{4})");
+
+                            var startMonth = matches.Groups[1].Value;
+                            var startDay = matches.Groups[2].Value;
+                            var startYear = matches.Groups[3].Value;
+
+                            var endMonth = matches.Groups[4].Value;
+                            var endDay = matches.Groups[5].Value;
+                            var endYear = matches.Groups[6].Value;
+
+                            var startDateString = $"{startMonth} {startDay}, {startYear}";
+                            var endDateString = $"{endMonth} {endDay}, {endYear}";
+
+                            if (DateTime.TryParseExact(startDateString, "MMMM dd, yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodFrom) &&
+                                DateTime.TryParseExact(endDateString, "MMMM dd, yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodTo))
+                            {
+                                response.Add("Statementperiodfrom", statementPeriodFrom.ToString("d MMM yyyy"));
+                                response.Add("Statementperiodto", statementPeriodTo.ToString("d MMM yyyy"));
+                            }
+                            else
+                            {
+                                // If parsing fails, add the original value
+                                response.Add("Statementperiod", statementPeriod);
+                            }
+                        }
+                        else if (Regex.IsMatch(statementPeriod, @"(\d{1,2})[/-](\d{2})[/-](\d{4}) to (\d{1,2})[/-](\d{2})[/-](\d{4})")) // Match format "dd/mm/yyyy to dd/mm/yyyy"
+                        {
+                            var matches = Regex.Match(statementPeriod, @"(\d{1,2})[/-](\d{2})[/-](\d{4}) to (\d{1,2})[/-](\d{2})[/-](\d{4})");
+
+                            var startDay = matches.Groups[1].Value;
+                            var startMonth = matches.Groups[2].Value;
+                            var startYear = matches.Groups[3].Value;
+
+                            var endDay = matches.Groups[4].Value;
+                            var endMonth = matches.Groups[5].Value;
+                            var endYear = matches.Groups[6].Value;
+
+                            var startDateString = $"{startDay}-{startMonth}-{startYear}";
+                            var endDateString = $"{endDay}-{endMonth}-{endYear}";
+
+                            if (DateTime.TryParseExact(startDateString, "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodFrom) &&
+                                DateTime.TryParseExact(endDateString, "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodTo))
+                            {
+                                response.Add("Statementperiodfrom", statementPeriodFrom.ToString("d MMM yyyy"));
+                                response.Add("Statementperiodto", statementPeriodTo.ToString("d MMM yyyy"));
+                            }
+                            else
+                            {
+                                // If parsing fails, add the original value
+                                response.Add("Statementperiod", statementPeriod);
+                            }
+                        }
                         else
                         {
-                            // If the regex match fails, just add the original value
+                            // If parsing fails, add the original value
                             response.Add("Statementperiod", statementPeriod);
                         }
                     }
                 }
-                else if (field != "Bankaddress1" && field != "Bankaddress2" && field != "Address1" && field != "Address2" && field != "Address3" && field != "Address4")
+
+
+
+
+                else if (field != "Bankaddress1" && field != "Bankaddress2" && field != "Bankaddress3" && field != "Address1" && field != "Address2" && field != "Address3" && field != "Address4")
                 {
                     response.Add(field, entity.GetType().GetProperty(field)?.GetValue(entity));
                 }
@@ -680,7 +769,7 @@ namespace DocuBot_Api.Controllers
                                             code = "1",
                                             loandetails = new
                                             {
-                                                lndet.Id,
+                                                
                                                 lndet.Applno,
                                                 //lndet.Loantypeid,
                                                 lndet.Loanamt,
