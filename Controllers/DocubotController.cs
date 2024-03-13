@@ -125,7 +125,7 @@ namespace DocuBot_Api.Controllers
         //}
 
         [Authorize]
-        [HttpPost("UplaodDocumnet")]
+        [HttpPost("UplaodDocument")]
         public async Task<ActionResult> UploadDocument(IFormFileCollection files, string applno)
         {
             string baseUrl = "https://demo.botaiml.com";
@@ -172,22 +172,23 @@ namespace DocuBot_Api.Controllers
 
                     if (response.IsSuccessStatusCode)
                     {
-                        var docid = _context.Loadedfiles
-                       .Where(e => e.Applno == applno)
-                       .OrderByDescending(e => e.Id)
-                       .Select(e => e.Id)
-                       .FirstOrDefault();
+                        // var docid = _context.Loadedfiles
+                        //.Where(e => e.Applno == applno)
+                        //.OrderByDescending(e => e.Id)
+                        //.Select(e => e.Id)
+                        //.FirstOrDefault();
 
 
 
-                        results.Add(new UploadFilesResModel
-                        {
+                        // results.Add(new UploadFilesResModel
+                        // {
 
-                            Applno = applno,
-                            Docid = docid
+                        //     Applno = applno,
+                        //     Docid = docid
 
-                        });
-
+                        // });
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        return Ok(responseContent);
                     }
                     else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                     {
@@ -322,7 +323,7 @@ namespace DocuBot_Api.Controllers
             var response = new System.Dynamic.ExpandoObject() as IDictionary<string, object>;
 
             // Check if Address1 and Address2 are in the fields list
-            var mergeAddressFields = fields.Contains("Address1") && fields.Contains("Address2");
+            var mergeAddressFields = fields.Contains("Address1");
 
             // Check if Bankaddress1 and Bankaddress2 are in the fields list
             var mergeBankAddressFields = fields.Contains("Bankaddress1");
