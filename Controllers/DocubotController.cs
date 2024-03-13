@@ -161,7 +161,9 @@ namespace DocuBot_Api.Controllers
                           ContentLength = file.Length,
                            ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType)
                         }
-                    }, "files", file.FileName);
+                    },
+                  "files", file.FileName);
+                }
 
 
                     // Append docid to the endpoint URL
@@ -172,24 +174,27 @@ namespace DocuBot_Api.Controllers
 
                     if (response.IsSuccessStatusCode)
                     {
-                        // var docid = _context.Loadedfiles
-                        //.Where(e => e.Applno == applno)
-                        //.OrderByDescending(e => e.Id)
-                        //.Select(e => e.Id)
-                        //.FirstOrDefault();
-
-
-
-                        // results.Add(new UploadFilesResModel
-                        // {
-
-                        //     Applno = applno,
-                        //     Docid = docid
-
-                        // });
-                        var responseContent = await response.Content.ReadAsStringAsync();
-                        return Ok(responseContent);
+                       
+                     var responseContent = await response.Content.ReadAsStringAsync();
+                    var responseObject = JsonConvert.DeserializeObject<dynamic>(responseContent);
+                    var insertedIds = responseObject["inserted_ids"];
+                    if (insertedIds == null || !insertedIds.HasValues)
+                    {
+                        return Ok(new { message = responseObject["message"].ToString() });
                     }
+
+                    foreach (var item in insertedIds)
+                    {
+                        results.Add(new UploadFilesResModel
+                        {
+                            Appno = applno,
+                            Docid = item.id,
+                            Filename = item.file_path
+                        });
+                    }
+
+                    return Ok(results);
+                }
                     else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                     {
                         // Handle redirect by extracting the new location from headers
@@ -209,9 +214,9 @@ namespace DocuBot_Api.Controllers
                         var responseContent = await response.Content.ReadAsStringAsync();
                         return StatusCode((int)response.StatusCode, responseContent);
                     }
-                }
+                
 
-              return Ok(results);
+             
 
             }
             catch (Exception ex)
@@ -722,123 +727,130 @@ namespace DocuBot_Api.Controllers
                             _docubotDbContext.Update(sqlServerEntity);
                             _docubotDbContext.SaveChanges();
                         }
+                        if (loanDetails.Rating < 0)
+                        {
 
-                         try
-                         {
-                            string connectionString = _configuration.GetConnectionString("myconn");
 
-                            using (SqlConnection connection = new SqlConnection(connectionString))
+                            try
                             {
-                                await connection.OpenAsync();
+                                string connectionString = _configuration.GetConnectionString("myconn");
 
-                              
-
-                            
-                                using (SqlCommand secondCommand = new SqlCommand("USP_GetLoanParam", connection))
+                                using (SqlConnection connection = new SqlConnection(connectionString))
                                 {
-                                    secondCommand.CommandType = CommandType.StoredProcedure;
-                                    secondCommand.Parameters.AddWithValue("@loancode", applno);
+                                    await connection.OpenAsync();
 
-                                    List<LoanSchedule> loanSchedule = new List<LoanSchedule>();
 
-                                    // Execute the second stored procedure
-                                    using (SqlDataReader secondReader = await secondCommand.ExecuteReaderAsync())
+
+
+                                    using (SqlCommand secondCommand = new SqlCommand("USP_GetLoanParam", connection))
                                     {
-                                        while (await secondReader.ReadAsync())
-                                        {
-                                            LoanSchedule scheduleItem = new LoanSchedule
-                                            {
-                                                Id = secondReader.GetInt32(secondReader.GetOrdinal("id")),
-                                                Period = secondReader.GetInt32(secondReader.GetOrdinal("period")),
-                                                PayDate = secondReader.GetDateTime(secondReader.GetOrdinal("paydate")),
-                                                Payment = secondReader.GetDecimal(secondReader.GetOrdinal("payment")),
-                                                Current_Balance = secondReader.GetDecimal(secondReader.GetOrdinal("current_balance")),
-                                                Interest = secondReader.GetDecimal(secondReader.GetOrdinal("interest")),
-                                                Principal = secondReader.GetDecimal(secondReader.GetOrdinal("principal"))
-                                            };
+                                        secondCommand.CommandType = CommandType.StoredProcedure;
+                                        secondCommand.Parameters.AddWithValue("@loancode", applno);
 
-                                            loanSchedule.Add(scheduleItem);
+                                        List<LoanSchedule> loanSchedule = new List<LoanSchedule>();
+
+                                        // Execute the second stored procedure
+                                        using (SqlDataReader secondReader = await secondCommand.ExecuteReaderAsync())
+                                        {
+                                            while (await secondReader.ReadAsync())
+                                            {
+                                                LoanSchedule scheduleItem = new LoanSchedule
+                                                {
+                                                    Id = secondReader.GetInt32(secondReader.GetOrdinal("id")),
+                                                    Period = secondReader.GetInt32(secondReader.GetOrdinal("period")),
+                                                    PayDate = secondReader.GetDateTime(secondReader.GetOrdinal("paydate")),
+                                                    Payment = secondReader.GetDecimal(secondReader.GetOrdinal("payment")),
+                                                    Current_Balance = secondReader.GetDecimal(secondReader.GetOrdinal("current_balance")),
+                                                    Interest = secondReader.GetDecimal(secondReader.GetOrdinal("interest")),
+                                                    Principal = secondReader.GetDecimal(secondReader.GetOrdinal("principal"))
+                                                };
+
+                                                loanSchedule.Add(scheduleItem);
+                                            }
                                         }
-                                    }
 
 
-                                    LoanDetails lndet = db.GetLoanDetails(applno);
-                                    if (lndet != null)
-                                    {
-                                        //var ratingCalcObject = JsonConvert.DeserializeObject<RatingCalculationContainer>(lndet.RatingCalc);
-                                        return new JsonResult(new
+                                        LoanDetails lndet = db.GetLoanDetails(applno);
+                                        if (lndet != null)
                                         {
-                                            code = "1",
-                                            loandetails = new
+                                            //var ratingCalcObject = JsonConvert.DeserializeObject<RatingCalculationContainer>(lndet.RatingCalc);
+                                            return new JsonResult(new
                                             {
-                                                
-                                                lndet.Applno,
-                                                //lndet.Loantypeid,
-                                                lndet.Loanamt,
-                                                lndet.Emi,
-                                                lndet.Assetval,
-                                                lndet.Tenor,
-                                                //lndet.Appid,
-                                                lndet.Approvaldate,
-                                                lndet.Disbdate,
-                                                //lndet.Status,
-                                                lndet.Owncontrib,
-                                                //lndet.Intrate,
-                                                //lndet.Loanacno,
-                                                lndet.Loantype,
-                                                lndet.Income,
-                                                lndet.Permth,
-                                                lndet.Taxpaid,
-                                                lndet.Rir,
-                                                lndet.Othemi,
-                                                lndet.Lvr,
-                                                lndet.Cibil,
-                                                lndet.Bounced,
-                                                lndet.Delayed,
-                                                lndet.Custtype,
-                                                lndet.Ccbal,
-                                                lndet.Emistartdate,
-                                                lndet.Rating,
-                                                lndet.Dependents,
-                                                lndet.Expenses
-                                            },
+                                                code = "1",
+                                                loandetails = new
+                                                {
 
-                                            scheduleHeading = "Loan Schedule",
+                                                    lndet.Applno,
+                                                    //lndet.Loantypeid,
+                                                    lndet.Loanamt,
+                                                    lndet.Emi,
+                                                    lndet.Assetval,
+                                                    lndet.Tenor,
+                                                    //lndet.Appid,
+                                                    lndet.Approvaldate,
+                                                    lndet.Disbdate,
+                                                    //lndet.Status,
+                                                    lndet.Owncontrib,
+                                                    //lndet.Intrate,
+                                                    //lndet.Loanacno,
+                                                    lndet.Loantype,
+                                                    lndet.Income,
+                                                    lndet.Permth,
+                                                    lndet.Taxpaid,
+                                                    lndet.Rir,
+                                                    lndet.Othemi,
+                                                    lndet.Lvr,
+                                                    lndet.Cibil,
+                                                    lndet.Bounced,
+                                                    lndet.Delayed,
+                                                    lndet.Custtype,
+                                                    lndet.Ccbal,
+                                                    lndet.Emistartdate,
+                                                    lndet.Rating,
+                                                    lndet.Dependents,
+                                                    lndet.Expenses
+                                                },
 
-                                            loanSchedule,
+                                                scheduleHeading = "Loan Schedule",
 
-                                            message = "Loan schedule and details retrieved Successfully",
-                                            status = "Success"
-                                        });
+                                                loanSchedule,
 
+                                                message = "Loan schedule and details retrieved Successfully",
+                                                status = "Success"
+                                            });
+
+                                        }
+
+                                        return Ok("Rating calculation executed successfully.");
                                     }
-
-                                    return Ok("Rating calculation executed successfully.");
                                 }
                             }
-                        }
-                        catch (Exception ex)
-                        {
-                            return StatusCode(500, $"Internal server error: {ex.Message}");
-                        }
-                    }
-                    else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
-                    {
-                        // Handle redirect by extracting the new location from headers
-                        var redirectUrl = response.Headers.Location;
-                        // Make a new request to the redirected URL
-                        response = await client.PostAsync(redirectUrl, null);
+                            
+                            catch (Exception ex)
+                            {
+                                return StatusCode(500, $"Internal server error: {ex.Message}");
+                            }
+                            
 
-                        if (response.IsSuccessStatusCode)
+                        }
+                        else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
+                        {
+                            // Handle redirect by extracting the new location from headers
+                            var redirectUrl = response.Headers.Location;
+                            // Make a new request to the redirected URL
+                            response = await client.PostAsync(redirectUrl, null);
+
+                            if (response.IsSuccessStatusCode)
+                            {
+                                var responseContent = await response.Content.ReadAsStringAsync();
+                                return Ok(responseContent);
+                            }
+                        }
+                        else
                         {
                             var responseContent = await response.Content.ReadAsStringAsync();
-                            return Ok(responseContent);
+                            return StatusCode((int)response.StatusCode, responseContent);
                         }
-                    }
-                    else
-                    {
-                        var responseContent = await response.Content.ReadAsStringAsync();
-                        return StatusCode((int)response.StatusCode, responseContent);
                     }
                 }
                 catch (Exception ex)

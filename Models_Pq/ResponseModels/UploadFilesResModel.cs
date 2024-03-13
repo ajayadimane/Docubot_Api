@@ -2,8 +2,9 @@
 {
     public class UploadFilesResModel
     {
+        public string Appno { get; set; }
         public int Docid { get; set; }
-        public string? Applno { get; set; }
+        public string Filename { get; set; }
     }
 
     public class ExtractkeyvalResponse
