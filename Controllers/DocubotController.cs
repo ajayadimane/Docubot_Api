@@ -174,6 +174,7 @@ namespace DocuBot_Api.Controllers
                     {
                         var docid = _context.Loadedfiles
                        .Where(e => e.Applno == applno)
+                       .OrderByDescending(e => e.Id)
                        .Select(e => e.Id)
                        .FirstOrDefault();
 
@@ -224,7 +225,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-        //[Authorize]
+        [Authorize]
         [HttpPost("ExtractKeyVal")]
         public async Task<ActionResult> ExtractKeyval(int docid)
         {
@@ -324,7 +325,7 @@ namespace DocuBot_Api.Controllers
             var mergeAddressFields = fields.Contains("Address1") && fields.Contains("Address2");
 
             // Check if Bankaddress1 and Bankaddress2 are in the fields list
-            var mergeBankAddressFields = fields.Contains("Bankaddress1") && fields.Contains("Bankaddress2");
+            var mergeBankAddressFields = fields.Contains("Bankaddress1");
 
             // Check if Statementperiod is in the fields list
             var statementPeriodFields = fields.Contains("Statementperiod");
@@ -349,19 +350,19 @@ namespace DocuBot_Api.Controllers
                 }
                 else if (field == "Bankaddress")
                 {
-                    var bankAddress = entity.GetType().GetProperty("Bankaddress")?.GetValue(entity) as string;
+                    var bankaddress = entity.GetType().GetProperty("Bankaddress")?.GetValue(entity) as string;
 
                     // Conditionally merge Bankaddress1 and Bankaddress2 into Bankaddress
                     if (mergeBankAddressFields)
                     {
-                        var bankAddress1 = entity.GetType().GetProperty("Bankaddress1")?.GetValue(entity) as string;
-                        var bankAddress2 = entity.GetType().GetProperty("Bankaddress2")?.GetValue(entity) as string;
-                        var bankAddress3 = entity.GetType().GetProperty("Bankaddress3")?.GetValue(entity) as string;
+                        var bankaddress1 = entity.GetType().GetProperty("Bankaddress1")?.GetValue(entity) as string;
+                        var bankaddress2 = entity.GetType().GetProperty("Bankaddress2")?.GetValue(entity) as string;
+                        var bankaddress3 = entity.GetType().GetProperty("Bankaddress3")?.GetValue(entity) as string;
 
-                        bankAddress = $"{bankAddress} {bankAddress1} {bankAddress2} {bankAddress3}".Trim();
+                        bankaddress = $"{bankaddress} {bankaddress1} {bankaddress2} {bankaddress3}".Trim();
                     }
 
-                    response.Add("Bankaddress", bankAddress);
+                    response.Add("Bankaddress", bankaddress);
                 }
                 else if (field == "Statementperiod")
                 {
