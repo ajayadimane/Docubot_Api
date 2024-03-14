@@ -149,7 +149,7 @@ namespace DocuBot_Api.Controllers
                 // Add Applno as a string content
                 formData.Add(new StringContent(applno), "applno");
 
-                var results = new List<object>();
+                //var results = new List<object>();
                 // Add each file in the collection to the form data
                 foreach (var file in files)
                 {
@@ -183,6 +183,8 @@ namespace DocuBot_Api.Controllers
                         return Ok(new { message = responseObject["message"].ToString() });
                     }
 
+                    var results = new List<UploadFilesResModel>();
+
                     foreach (var item in insertedIds)
                     {
                         results.Add(new UploadFilesResModel
@@ -193,7 +195,7 @@ namespace DocuBot_Api.Controllers
                         });
                     }
 
-                    return Ok(results);
+                    return Ok(new { message = responseObject["message"].ToString(), insertedFiles = results });
                 }
                     else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                     {
@@ -727,7 +729,8 @@ namespace DocuBot_Api.Controllers
                             _docubotDbContext.Update(sqlServerEntity);
                             _docubotDbContext.SaveChanges();
                         }
-                        if (loanDetails.Rating < 0)
+
+                        if (loanDetails.Rating > 0)
                         {
 
 
@@ -828,28 +831,29 @@ namespace DocuBot_Api.Controllers
                             
                             catch (Exception ex)
                             {
-                                return StatusCode(500, $"Internal server error: {ex.Message}");
+                                return StatusCode(500, $"Your Application did not match the criteria with low or negative rating");
                             }
                             
 
                         }
-                        else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
-                        {
-                            // Handle redirect by extracting the new location from headers
-                            var redirectUrl = response.Headers.Location;
-                            // Make a new request to the redirected URL
-                            response = await client.PostAsync(redirectUrl, null);
+                        //else if (response.statuscode == httpstatuscode.redirect || response.statuscode == httpstatuscode.temporaryredirect)
+                        //{
+                        //    // handle redirect by extracting the new location from headers
+                        //    var redirecturl = response.headers.location;
+                        //    // make a new request to the redirected url
+                        //    response = await client.postasync(redirecturl, null);
 
-                            if (response.IsSuccessStatusCode)
-                            {
-                                var responseContent = await response.Content.ReadAsStringAsync();
-                                return Ok(responseContent);
-                            }
-                        }
+                        //    if (response.issuccessstatuscode)
+                        //    {
+                        //        var responsecontent = await response.content.readasstringasync();
+                        //        return ok(responsecontent);
+                        //    }
+                        //}
                         else
                         {
-                            var responseContent = await response.Content.ReadAsStringAsync();
-                            return StatusCode((int)response.StatusCode, responseContent);
+                            //var responseContent = await response.Content.ReadAsStringAsync();
+                            //return StatusCode((int)response.StatusCode, responseContent);
+                            return Ok("Your Application did not match the criteria with low or negative rating");
                         }
                     }
                 }
