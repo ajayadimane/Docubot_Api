@@ -61,7 +61,7 @@ namespace DocuBot_Api.Controllers
 
 
         [AllowAnonymous]
-        [HttpPost]
+        [HttpPost("Login")]
 
         public IActionResult Login(LoginModel userData)
         {
@@ -132,7 +132,7 @@ namespace DocuBot_Api.Controllers
         //        return Ok(User);
         //    }
 
-        [HttpPost("InsertUser")]
+        [HttpPost("AddUser")]
         public async Task<ActionResult> InsertUser([FromBody] User user)
         {
             try

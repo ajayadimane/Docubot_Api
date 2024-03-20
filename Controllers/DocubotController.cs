@@ -195,7 +195,14 @@ namespace DocuBot_Api.Controllers
                         });
                     }
 
-                    return Ok(new { message = responseObject["message"].ToString(), insertedFiles = results });
+                      //return Ok(new { message = responseObject["message"].ToString(), insertedFiles = results });
+                    return new JsonResult(new
+                    {
+                        code = "1",
+                        message = responseObject["message"].ToString(),
+                        insertedFiles = results,
+                        status = "Success"
+                    });
                 }
                     else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                     {
@@ -214,18 +221,22 @@ namespace DocuBot_Api.Controllers
                     {
                         // Handle other cases where the response status code is not success or redirect
                         var responseContent = await response.Content.ReadAsStringAsync();
-                        return StatusCode((int)response.StatusCode, responseContent);
-                    }
-                
+                        //return StatusCode((int)response.StatusCode, responseContent);
+                    return new JsonResult(new
+                    {
+                        code = "0",
+                        message = responseContent,
+                        status = "Failure"
+                    });
 
-             
-
+                }
+                             
             }
             catch (Exception ex)
             {
                 // Log the exception
                 //_logger.LogError($"Exception occurred: {ex.Message}");
-                return StatusCode(500, "Internal Server Error");
+                return new JsonResult(new { code = "0", message = ex.Message + " Files could not be uploaded. Try Again", status = "Failure" });
             }
 
             return BadRequest("Unexpected error occurred");
@@ -288,10 +299,19 @@ namespace DocuBot_Api.Controllers
                         return NotFound();
                     }
 
-                    ConvertDatesToDDMMYYYY(bankDetails);
+                    ConvertDatesToStandardFormat(bankDetails);
 
-                    return Ok(bankDetails);
-                
+                    //return Ok(bankDetails);
+
+                    return new JsonResult(new
+                    {
+                        code = "1",
+                        Extarcted_Values = bankDetails,
+                        message = "Documents processing completed",
+                        status = "Success"
+                    });
+
+
                 }
                 else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                 {
@@ -303,23 +323,33 @@ namespace DocuBot_Api.Controllers
                     if (response.IsSuccessStatusCode)
                     {
                         var responseContent = await response.Content.ReadAsStringAsync();
-                        return Ok(responseContent);
+                        //return Ok(responseContent);
+
                     }
                 }
                 else
                 {
                     // Handle other cases where the response status code is not success or redirect
                     var responseContent = await response.Content.ReadAsStringAsync();
-                    return StatusCode((int)response.StatusCode, responseContent);
+                    //return StatusCode((int)response.StatusCode, responseContent);
+
+                    return new JsonResult(new
+                    {
+                        code = "0",
+                        message = responseContent,
+                        status = "Failure"
+                    });
                 }
             }
             catch (Exception ex)
             {
                 // Log the exception
                 //_logger.LogError($"Exception occurred: {ex.Message}");
-                return StatusCode(500, "Internal Server Error");
+                //return StatusCode(500, "Internal Server Error");
+                return new JsonResult(new { code = "0", message = ex.Message, status = "Failure" });
             }
-            return BadRequest("Unexpected error occurred");
+            //return BadRequest("Unexpected error occurred");
+            return new JsonResult(new { code = "0", message = "Unexpected error occurred", status = "Failure" });
         }
 
 
@@ -493,16 +523,23 @@ namespace DocuBot_Api.Controllers
         }
 
 
-        private void ConvertDatesToDDMMYYYY(object obj)
+        private void ConvertDatesToStandardFormat(object bankDetails)
         {
-            foreach (var property in obj.GetType().GetProperties())
+            if (bankDetails is IDictionary<string, object> details)
             {
-                if (property.PropertyType == typeof(DateTime))
+                foreach (var key in details.Keys.ToList())
                 {
-                    DateTime? dateValue = (DateTime?)property.GetValue(obj);
-                    if (dateValue.HasValue)
+                    if (details[key] is DateTime date)
                     {
-                        property.SetValue(obj, dateValue.Value.ToString("dd-MM-yyyy"));
+                        details[key] = date.ToString("dd/MM/yyyy");
+                    }
+                    else if (details[key] is string dateStr)
+                    {
+                        DateTime parsedDate;
+                        if (DateTime.TryParse(dateStr, out parsedDate))
+                        {
+                            details[key] = parsedDate.ToString("dd/MM/yyyy");
+                        }
                     }
                 }
             }
@@ -513,7 +550,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-        [HttpPost("ExtarctDetialsby ID")]
+       [HttpPost("ExtarctDetialsby ID")]
         public async Task<ActionResult> GetKeyval(int docid)
         {
             var Extarctedvalues = await _context.ExtractionKeyValues.Where(e => e.Docid == docid).ToListAsync();
@@ -576,7 +613,17 @@ namespace DocuBot_Api.Controllers
                             return NotFound();
                         }
 
-                        return Ok(bankDetails);
+                        ConvertDatesToStandardFormat(bankDetails);
+
+                        //return Ok(bankDetails);
+
+                        return new JsonResult(new
+                        {
+                            code = "1",
+                            Extarcted_Values = bankDetails,
+                            message = "Documents processing completed",
+                            status = "Success"
+                        });
                     }
                     else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                     {
@@ -594,18 +641,24 @@ namespace DocuBot_Api.Controllers
                     else
                     {
                         var responseContent = await response.Content.ReadAsStringAsync();
-                        return StatusCode((int)response.StatusCode, responseContent);
+                        //return StatusCode((int)response.StatusCode, responseContent);
+                        return new JsonResult(new
+                        {
+                            code = "0",
+                            message = responseContent,
+                            status = "Failure"
+                        });
                     }
                 }
                 catch (Exception ex)
                 {
                     // Log the exception
                     //_logger.LogError($"Exception occurred: {ex.Message}");
-                    return StatusCode(500, "Internal Server Error");
+                    return new JsonResult(new { code = "0", message = ex.Message, status = "Failure" });
                 }
             }
 
-            return BadRequest();
+            return new JsonResult(new { code = "0", message = "Unexpected error occurred, please pass the correct docid", status = "Failure" });
         }
 
         private static object GenerateResponsefromconfig(Rating_Models.ExtractTransactionDatum entity, IEnumerable<string> fields)
@@ -620,9 +673,43 @@ namespace DocuBot_Api.Controllers
             return response;
         }
 
+        private void ConvertDatesToStandardFormat(List<object> bankDetails)
+        {
+            foreach (var obj in bankDetails)
+            {
+                if (obj is IDictionary<string, object> transaction)
+                {
+                    if (transaction.ContainsKey("TxnDate") && transaction["TxnDate"] is DateTime txnDate)
+                    {
+                        // Convert TxnDate to the desired format
+                        transaction["TxnDate"] = txnDate.ToString("dd/MM/yyyy");
+                    }
+                    if (transaction.ContainsKey("ValueDate") && transaction["ValueDate"] is string valueDate)
+                    {
+                        transaction["ValueDate"] = ConvertToStandardDateFormat(valueDate);
+                    }
+                }
+            }
+        }
+
+        // Function to convert date string to standard format
+        private string ConvertToStandardDateFormat(string date)
+        {
+            DateTime parsedDate;
+            if (DateTime.TryParseExact(date, new string[] { "yyyy-MM-ddTHH:mm:ss", "dd/MM/yyyy", "d MMM yyyy", "dd/MM/yy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDate))
+            {
+                return parsedDate.ToString("dd/MM/yyyy");
+            }
+            return date; // Return original string if unable to parse
+        }
+
+
+
+
+
 
         [Authorize]
-        [HttpPost("InsertLoanDetails")]
+        [HttpPost("AddNewLoanDetails")]
         public async Task<ActionResult> InsertLoanDetails(LoanDetailsMod req)
         {
             try
@@ -632,7 +719,9 @@ namespace DocuBot_Api.Controllers
 
                     if (await _context.Loandetails.AnyAsync(u => u.Applno == req.Applno))
                     {
-                        return Conflict("LoanDetails with Same Applno already exists in Database.");
+                        //return Conflict("LoanDetails with Same Applno already exists in Database.");
+
+                        return new JsonResult(new { code = "0", message = "LoanDetails with Same Applno already exists in Database.", status = "Failure" });
                     }
                     // DocubotDbContext _context = new();
                     db.InsertIntoLoanDetails(req);
@@ -668,13 +757,13 @@ namespace DocuBot_Api.Controllers
 
 
                 }
-                return Ok("Inserted Success");
+                return new JsonResult(new { code = "1", message = "LoanDetails Inserted Successfully.", status = "Success" });
             }
 
 
             catch (Exception ex)
             {
-                return BadRequest();
+                return new JsonResult(new { code = "0", message = ex.Message, status = "Failure" });
             }
         }
 
@@ -730,7 +819,7 @@ namespace DocuBot_Api.Controllers
                             _docubotDbContext.SaveChanges();
                         }
 
-                        if (loanDetails.Rating > 0)
+                        if (loanDetails.Rating > 450)
                         {
 
 
@@ -780,38 +869,40 @@ namespace DocuBot_Api.Controllers
                                             return new JsonResult(new
                                             {
                                                 code = "1",
-                                                loandetails = new
+                                                loandetails = new InsertLoanDetailsReq
                                                 {
 
-                                                    lndet.Applno,
+                                                     Applno = lndet.Applno,
                                                     //lndet.Loantypeid,
-                                                    lndet.Loanamt,
-                                                    lndet.Emi,
-                                                    lndet.Assetval,
-                                                    lndet.Tenor,
+                                                     Loanamt= lndet.Loanamt,
+                                                    Emi= lndet.Emi,
+                                                    Assetval = lndet.Assetval,
+                                                    Tenor = lndet.Tenor,
                                                     //lndet.Appid,
-                                                    lndet.Approvaldate,
-                                                    lndet.Disbdate,
+                                                    Approvaldate = lndet.Approvaldate,
+                                                    Disbdate = lndet.Disbdate,
                                                     //lndet.Status,
-                                                    lndet.Owncontrib,
+                                                    Owncontrib = lndet.Owncontrib,
                                                     //lndet.Intrate,
                                                     //lndet.Loanacno,
-                                                    lndet.Loantype,
-                                                    lndet.Income,
-                                                    lndet.Permth,
-                                                    lndet.Taxpaid,
-                                                    lndet.Rir,
-                                                    lndet.Othemi,
-                                                    lndet.Lvr,
-                                                    lndet.Cibil,
-                                                    lndet.Bounced,
-                                                    lndet.Delayed,
-                                                    lndet.Custtype,
-                                                    lndet.Ccbal,
-                                                    lndet.Emistartdate,
-                                                    lndet.Rating,
-                                                    lndet.Dependents,
-                                                    lndet.Expenses
+                                                    Loantype = lndet.Loantype,
+                                                    Income = lndet.Income,
+                                                            Permth = lndet.Permth,
+                                                    Taxpaid = lndet.Taxpaid,
+                                                    Rir = lndet.Rir,
+                                                    Othemi = lndet.Othemi,
+                                                    Lvr = lndet.Lvr,
+                                                    Cibil = lndet.Cibil,
+                                                    Bounced = lndet.Bounced,
+                                                    Delayed = lndet.Delayed,
+                                                    Custtype = lndet.Custtype,
+                                                    Ccbal = lndet.Ccbal,
+                                                    Emistartdate = lndet.Emistartdate,
+                                                    Rating = lndet.Rating,
+                                                    MaxRating = 900,
+                                                    RatingCalculatedDate = DateTime.Now.ToString(),
+                                                    Dependents = lndet.Dependents,
+                                                    Expenses = lndet.Expenses
                                                 },
 
                                                 scheduleHeading = "Loan Schedule",
@@ -831,7 +922,8 @@ namespace DocuBot_Api.Controllers
                             
                             catch (Exception ex)
                             {
-                                return StatusCode(500, $"Your Application did not match the criteria with low or negative rating");
+                                return new JsonResult(new { code = "0", message = "An error occurred while calculating Rating",
+                                  status = "Failure" });
                             }
                             
 
@@ -853,7 +945,8 @@ namespace DocuBot_Api.Controllers
                         {
                             //var responseContent = await response.Content.ReadAsStringAsync();
                             //return StatusCode((int)response.StatusCode, responseContent);
-                            return Ok("Your Application did not match the criteria with low or negative rating");
+                            //return Ok("Your Application did not match the criteria with low or negative rating");
+                            return new JsonResult(new { code = "0", message = "Your Application did not match the criteria with low or negative rating", status = "Failure" });
                         }
                     }
                 }
@@ -861,7 +954,8 @@ namespace DocuBot_Api.Controllers
                 {
                     // Log the exception
                     //_logger.LogError($"Exception occurred: {ex.Message}");
-                    return StatusCode(500, "Internal Server Error");
+                    return new JsonResult(new { code = "0", message = "An error occurred while calculating Rating",
+                        status = "Failure" });
                 }
             }
 
