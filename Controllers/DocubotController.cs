@@ -125,7 +125,7 @@ namespace DocuBot_Api.Controllers
         //}
 
         [Authorize]
-        [HttpPost("UplaodDocument")]
+        [HttpPost("UploadDocument")]
         public async Task<ActionResult> UploadDocument(IFormFileCollection files, string applno)
         {
             string baseUrl = "https://demo.botaiml.com";
@@ -180,7 +180,15 @@ namespace DocuBot_Api.Controllers
                     var insertedIds = responseObject["inserted_ids"];
                     if (insertedIds == null || !insertedIds.HasValues)
                     {
-                        return Ok(new { message = responseObject["message"].ToString() });
+                       // return Ok(new { message = responseObject["message"].ToString() });
+
+                        return new JsonResult(new
+                        {
+                            code = "1",
+                            message = responseObject["message"].ToString(),
+                            //insertedFiles = results,
+                            status = "Success"
+                        });
                     }
 
                     var results = new List<UploadFilesResModel>();
