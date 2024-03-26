@@ -70,10 +70,18 @@ namespace DocuBot_Api.Controllers
             if (user != null)
             {
                 var token = GenerateToken(user);
-                response = Ok(new { Token = token });
+                response = Ok(new { code = "1", Token = token, message = "Login Success", status = "Success" });
             }
-            return response;
+            else
+            {
+                // If user is not found, return a failure response
+                response = new JsonResult(new { code = "0", message = "Invalid UserName or Password", status = "Failure" });
+            }
+            return response;         
         }
+
+   
+
 
 
         //    [HttpPost]

@@ -82,6 +82,7 @@ namespace DocuBot_Api.Controllers
                             // Include other properties as needed
                         },
                         message = "Loan Details retrieved Successfully",
+                        status = "Success"
                     });
                 }
                 else
