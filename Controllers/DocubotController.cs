@@ -568,7 +568,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-        [Authorize]
+       [Authorize]
         [HttpPost("ExtractTransactions")]
         public async Task<ActionResult> ExtractTableData(int docid)
         {
@@ -715,7 +715,6 @@ namespace DocuBot_Api.Controllers
 
 
 
-
         [Authorize]
         [HttpPost("AddNewLoanDetails")]
         public async Task<ActionResult> InsertLoanDetails(LoanDetailsMod req)
@@ -827,7 +826,7 @@ namespace DocuBot_Api.Controllers
                             _docubotDbContext.SaveChanges();
                         }
 
-                        if (loanDetails.Rating > 450)
+                        if (loanDetails.Rating > 562)
                         {
 
 
@@ -895,7 +894,7 @@ namespace DocuBot_Api.Controllers
                                                     //lndet.Loanacno,
                                                     Loantype = lndet.Loantype,
                                                     Income = lndet.Income,
-                                                            Permth = lndet.Permth,
+                                                    Permth = lndet.Permth,
                                                     Taxpaid = lndet.Taxpaid,
                                                     Rir = lndet.Rir,
                                                     Othemi = lndet.Othemi,
@@ -954,7 +953,44 @@ namespace DocuBot_Api.Controllers
                             //var responseContent = await response.Content.ReadAsStringAsync();
                             //return StatusCode((int)response.StatusCode, responseContent);
                             //return Ok("Your Application did not match the criteria with low or negative rating");
-                            return new JsonResult(new { code = "0", message = "Your Application did not match the criteria with low or negative rating", status = "Failure" });
+                            LoanDetails lndet = db.GetLoanDetails(applno);
+                            return new JsonResult(new { code = "0", message = "Your Application did not match the criteria with low or negative rating",
+                                loandetails = new InsertLoanDetailsReq
+                                {
+                                    Applno = lndet.Applno,
+                                    //lndet.Loantypeid,
+                                    Loanamt = lndet.Loanamt,
+                                    Emi = lndet.Emi,
+                                    Assetval = lndet.Assetval,
+                                    Tenor = lndet.Tenor,
+                                    //lndet.Appid,
+                                    Approvaldate = lndet.Approvaldate,
+                                    Disbdate = lndet.Disbdate,
+                                    //lndet.Status,
+                                    Owncontrib = lndet.Owncontrib,
+                                    //lndet.Intrate,
+                                    //lndet.Loanacno,
+                                    Loantype = lndet.Loantype,
+                                    Income = lndet.Income,
+                                    Permth = lndet.Permth,
+                                    Taxpaid = lndet.Taxpaid,
+                                    Rir = lndet.Rir,
+                                    Othemi = lndet.Othemi,
+                                    Lvr = lndet.Lvr,
+                                    Cibil = lndet.Cibil,
+                                    Bounced = lndet.Bounced,
+                                    Delayed = lndet.Delayed,
+                                    Custtype = lndet.Custtype,
+                                    Ccbal = lndet.Ccbal,
+                                    Emistartdate = lndet.Emistartdate,
+                                    
+                                    Rating = lndet.Rating,
+                                    MaxRating = 900,
+                                    RatingCalculatedDate = DateTime.Now.ToString(),
+                                    Dependents = lndet.Dependents,
+                                    Expenses = lndet.Expenses
+                                },
+                                status = "Failure" });
                         }
                     }
                 }
