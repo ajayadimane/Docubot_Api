@@ -18,6 +18,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace DocuBot_Api.Controllers
 {
@@ -29,14 +30,16 @@ namespace DocuBot_Api.Controllers
         private readonly RatingContext _context;
         private readonly DocubotDbContext _docubotDbContext;
         private readonly IConfiguration _configuration;
+        private readonly RatingContext _ratingContext;
         //private readonly IHttpClientFactory _httpClientFactory;
 
-        public DocubotController(RatingContext context, DocubotDbContext docubotDbContext, IConfiguration configuration)
+        public DocubotController(RatingContext context, DocubotDbContext docubotDbContext, IConfiguration configuration, RatingContext ratingContext)
         {
             _context = context;
             _docubotDbContext = docubotDbContext;
             db = new RatingEngineDB();
             _configuration = configuration;
+            _ratingContext = ratingContext;
             //_httpClientFactory = httpClientFactory;
         }
 
@@ -278,6 +281,16 @@ namespace DocuBot_Api.Controllers
 
                 if (response.IsSuccessStatusCode)
                 {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+
+                    // Parse the response content to check for pdf_path
+                    var responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
+                    if (responseObject != null && responseObject.ContainsKey("pdf_path"))
+                    {
+                        string pdfPath = responseObject["pdf_path"].ToString();
+                        return await ExtractData(pdfPath);
+                    }
+
                     var bankName = _context.ExtractionKeyValues
                     .Where(e => e.Docid == docid)
                     .Select(e => e.Bankname)
@@ -361,6 +374,68 @@ namespace DocuBot_Api.Controllers
         }
 
 
+        private async Task<ActionResult> ExtractData(string pdfPath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(pdfPath) || !System.IO.File.Exists(pdfPath))
+                {
+                    return NotFound("File not found.");
+                }
+
+                using var stream = new FileStream(pdfPath, FileMode.Open);
+
+                XDocument doc;
+                try
+                {
+                    doc = XDocument.Load(stream);
+                }
+                catch (Exception ex)
+                {
+                    return BadRequest($"Error loading XML content: {ex.Message}");
+                }
+
+                XNamespace ns = "http://api.rebit.org.in/FISchema/deposit";
+
+                var holder = doc.Descendants(ns + "Holder").FirstOrDefault();
+                var summary = doc.Descendants(ns + "Summary").FirstOrDefault();
+                var transactions = doc.Descendants(ns + "Transactions").FirstOrDefault();
+
+                if (holder == null || summary == null || transactions == null)
+                {
+                    return BadRequest("Invalid XML format or missing elements.");
+                }
+
+                var accountInfo = new ExtractionKeyValue
+                {
+                    Accountholder = holder.Attribute("name")?.Value,
+                    Address = holder.Attribute("address")?.Value,
+                    Date = DateTime.TryParseExact(holder.Attribute("dob")?.Value, "yyyy-MM-dd", null, DateTimeStyles.None, out var date) ? date : (DateTime?)null,
+                    Email = holder.Attribute("email")?.Value,
+                    Mobileno = holder.Attribute("mobile")?.Value,
+                    Pan = holder.Attribute("pan")?.Value,
+                    Balanceason = summary.Attribute("currentBalance")?.Value,
+                    Branch = summary.Attribute("branch")?.Value,
+                    DOB = summary.Attribute("drawingLimit")?.Value,
+                    Ifsc = summary.Attribute("ifscCode")?.Value,
+                    Micrcode = summary.Attribute("micrCode")?.Value,
+                    Opendate = summary.Attribute("openingDate")?.Value,
+                    Accountstatus = summary.Attribute("status")?.Value,
+                    Accounttype = summary.Attribute("type")?.Value,
+                    Statementperiodfrom = transactions?.Attribute("startDate")?.Value,
+                    Statementperiodto = transactions?.Attribute("endDate")?.Value
+                };
+
+                _ratingContext.ExtractionKeyValues.Add(accountInfo);
+                await _ratingContext.SaveChangesAsync();
+
+                return Ok(accountInfo);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
 
 
         private static object GenerateResponse(ExtractionKeyValue entity, IEnumerable<string> fields)
@@ -591,7 +666,17 @@ namespace DocuBot_Api.Controllers
 
                     if (response.IsSuccessStatusCode)
                     {
-                        var bankName = _context.ExtractTransactionData
+                         var responseContent = await response.Content.ReadAsStringAsync();
+
+                            // Parse the response content to check for pdf_path
+                            var responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
+                            if (responseObject != null && responseObject.ContainsKey("pdf_path"))
+                            {
+                                string pdfPath = responseObject["pdf_path"].ToString();
+                                return await ProcessXml(docid);
+                            }
+
+                            var bankName = _context.ExtractTransactionData
                         .Where(e => e.Docid == docid)
                         .Select(e => e.Bankname)
                         .FirstOrDefault();
@@ -711,6 +796,62 @@ namespace DocuBot_Api.Controllers
             return date; // Return original string if unable to parse
         }
 
+
+        private async Task<ActionResult> ProcessXml(int docid)
+        {
+            try
+            {
+                // Retrieve the file path based on the docid
+                var filePath = _ratingContext.Loadedfiles
+                                .Where(f => f.Id == docid)
+                                .Select(f => f.Docname)
+                                .FirstOrDefault();
+
+                if (string.IsNullOrEmpty(filePath))
+                {
+                    return NotFound("Document not found.");
+                }
+
+                // Ensure the file exists
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return NotFound("File not found.");
+                }
+
+                // Read and process the file
+                var xmlContent = System.IO.File.ReadAllText(filePath);
+                XmlProcessor processor = new XmlProcessor();
+                XmlProcessorResult result = processor.ProcessXml(xmlContent);
+
+                foreach (var detail in result.TransactionDetails)
+                {
+                    var entity = new Rating_Models.ExtractTransactionDatum
+                    {
+                        Credit = detail.TxnType == "CREDIT" ? detail.Amount.ToString() : null,
+                        Debit = detail.TxnType == "DEBIT" ? detail.Amount.ToString() : null,
+                        Balance = detail.CurrentBalance.ToString(),
+                        Description = detail.Narration,
+                        ChequeNumber = detail.Reference,
+                        TxnDate = !string.IsNullOrEmpty(detail.TransactionTimestamp) ?
+                                  DateTime.Parse(detail.TransactionTimestamp) : (DateTime?)null,
+                        ValueDate = detail.Valuedate,
+                        TransactionId = detail.Txnid,
+                        Mode = detail.Mode,
+                        Type = detail.TxnType
+                    };
+                    _ratingContext.ExtractTransactionData.Add(entity);
+                }
+
+                _ratingContext.SaveChanges();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                // Handle exceptions, log, or throw as needed
+                Console.WriteLine($"Error processing XML: {ex.Message}");
+                return StatusCode(500, "Internal Server Error");
+            }
+        }
 
 
 

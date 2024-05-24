@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="pdftohtml.py\**" />
+    <Content Remove="pdftohtml.py\**" />
+    <EmbeddedResource Remove="pdftohtml.py\**" />
+    <None Remove="pdftohtml.py\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.102.1" />
     <PackageReference Include="IoC.Container" Version="1.3.8" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.26" />
@@ -21,10 +28,6 @@
     <PackageReference Include="PdfSharpCore" Version="1.3.62" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.0.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="pdftohtml.py\" />
   </ItemGroup>
 
 </Project>
