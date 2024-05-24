@@ -17,7 +17,7 @@ public partial class ExtractionKeyValue
 
     public DateTime? Date { get; set; }
 
-    public string Accountno { get; set; } = null!;
+    public string? Accountno { get; set; }
 
     public string? Accountdescription { get; set; }
 
@@ -59,6 +59,8 @@ public partial class ExtractionKeyValue
 
     public string? Email { get; set; }
 
+    public string? DOB { get; set; }
+
     public string? Opendate { get; set; }
 
     public string? Accountstatus { get; set; }
@@ -97,19 +99,19 @@ public partial class ExtractionKeyValue
 
     public string? Jointholder { get; set; }
 
-    public string? Address4 { get; set; }
+    //public string? Address4 { get; set; }
 
-    public string? Jointholders { get; set; }
+    //public string? Jointholders { get; set; }
 
-    public string? Odlimit { get; set; }
+    //public string? Odlimit { get; set; }
 
-    public string? Accountstatementdate { get; set; }
+    //public string? Accountstatementdate { get; set; }
 
-    public string? Producttype { get; set; }
+    //public string? Producttype { get; set; }
 
-    public string? Clearedbalance { get; set; }
+    //public string? Clearedbalance { get; set; }
 
-    public string? Unclearedamount { get; set; }
+    //public string? Unclearedamount { get; set; }
 
     public virtual Loadedfile Doc { get; set; } = null!;
 }

@@ -26,6 +26,10 @@ using DocuBot_Api.Classes;
 using DocumentFormat.OpenXml.Wordprocessing;
 using System.Reflection.Metadata;
 using System;
+using DocuBot_Api.Rating_Models;
+using IoC;
+using System.Xml.Linq;
+using IConfiguration = Microsoft.Extensions.Configuration.IConfiguration;
 
 namespace DocuBot_Api.Controllers
 {
@@ -35,12 +39,13 @@ namespace DocuBot_Api.Controllers
     {
         private readonly IConfiguration _configuration;
         private static readonly string OutputDirectory = Path.Combine(Directory.GetCurrentDirectory(), "outputfiles");
+        private readonly RatingContext _ratingContext;
 
 
-        public UploadFilesController(IConfiguration configuration)
+        public UploadFilesController(IConfiguration configuration, RatingContext ratingContext)
         {
             _configuration = configuration;
-
+            _ratingContext = ratingContext;
 
 
         }
@@ -659,48 +664,27 @@ namespace DocuBot_Api.Controllers
                         XmlProcessor processor = new XmlProcessor();
                         XmlProcessorResult result = processor.ProcessXml(xmlContent);
 
-                        try
+                        foreach (var detail in result.TransactionDetails)
                         {
-
-
-                            string connectionString = _configuration.GetConnectionString("myconn");
-
-                            using (SqlConnection connection = new SqlConnection(connectionString))
+                            var entity = new ExtractTransactionDatum
                             {
-                                connection.Open();
-
-                                foreach (var transDetail in result.TransactionDetails)
-                                {
-                                    using (SqlCommand command = new SqlCommand("usp_uploadtabeldata", connection))
-                                    {
-                                        command.CommandType = CommandType.StoredProcedure;
-                                        command.Parameters.AddWithValue("@lfid", 72);
-                                        command.Parameters.AddWithValue("@col1", transDetail.TransactionTimestamp);
-                                        command.Parameters.AddWithValue("@col2", transDetail.Valuedate);
-                                        command.Parameters.AddWithValue("@col3", transDetail.Narration);
-                                        command.Parameters.AddWithValue("@col4", transDetail.Reference);
-                                        command.Parameters.AddWithValue("@col5", transDetail.TxnType == "DEBIT" ? transDetail.Amount.ToString() : DBNull.Value.ToString());
-                                        command.Parameters.AddWithValue("@col6", transDetail.TxnType == "CREDIT" ? transDetail.Amount.ToString() : DBNull.Value.ToString());
-                                        //command.Parameters.AddWithValue("@col5", '-');
-                                        //command.Parameters.AddWithValue("@col6", '-');
-                                        command.Parameters.AddWithValue("@col7", transDetail.CurrentBalance);
-
-                                        // Execute the command
-                                        command.ExecuteNonQuery();
-
-                                    }
-                                }
-                            }
+                                //Amount = detail.Amount.ToString(),
+                                Credit = detail.TxnType == "CREDIT" ? detail.Amount.ToString() : null,
+                                Debit = detail.TxnType == "DEBIT" ? detail.Amount.ToString() : null,
+                                Balance = detail.CurrentBalance.ToString(),
+                                Description = detail.Narration,
+                                ChequeNumber = detail.Reference,
+                                TxnDate = !string.IsNullOrEmpty(detail.TransactionTimestamp) ?
+            DateTime.Parse(detail.TransactionTimestamp) : (DateTime?)null,
+                                ValueDate = detail.Valuedate,
+                                TransactionId = detail.Txnid,
+                                Mode = detail.Mode,
+                                //Bankname = "icici",
+                                Type = detail.TxnType
+                            };
+                            _ratingContext.ExtractTransactionData.Add(entity);
                         }
-                        catch (Exception ex) 
-                        {
-                            // Handle database - related exceptions or log the error
-                            Console.WriteLine($"Error executing stored procedure: {ex.Message}");
-                            return StatusCode(500, "Internal Server Error");
-
-
-                        }
-
+                       _ratingContext.SaveChanges();
                      return Ok(result);
                         
                     }
@@ -718,9 +702,101 @@ namespace DocuBot_Api.Controllers
                 Console.WriteLine($"Error processing XML: {ex.Message}");
                 return StatusCode(500, "Internal Server Error");
             }
-
-
         }
+
+
+
+        [HttpPost("extractxmlkey-val")]
+        public IActionResult ExtractData(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest("No file uploaded.");
+                }
+
+                using (var stream = new MemoryStream())
+                {
+                    file.CopyTo(stream);
+                    stream.Position = 0;
+
+                    // Load the XML content into an XDocument
+                    XDocument doc;
+                    try
+                    {
+                        doc = XDocument.Load(stream);
+                    }
+                    catch (Exception ex)
+                    {
+                        return BadRequest($"Error loading XML content: {ex.Message}");
+                    }
+
+                    // Define the namespace
+                    XNamespace ns = "http://api.rebit.org.in/FISchema/deposit";
+
+                    // Query elements with the namespace
+                    var holder = doc.Descendants(ns + "Holder").FirstOrDefault();
+                    var summary = doc.Descendants(ns + "Summary").FirstOrDefault();
+                    var transactions = doc.Descendants(ns + "Transactions").FirstOrDefault();
+
+                    // Debugging: Print XML content to check structure
+                    var xmlContent = doc.ToString(); // This will print the entire XML content for debugging
+                    Console.WriteLine(xmlContent);
+
+                    // Debugging: Check if elements are found
+                    Console.WriteLine(holder != null);
+                    Console.WriteLine(summary != null);
+                    Console.WriteLine(transactions != null);
+
+                    if (holder == null || summary == null || transactions == null)
+                    {
+                        return BadRequest("Invalid XML format or missing elements.");
+                    }
+
+                    // Extract data and insert into database
+                    var accountInfo = new ExtractionKeyValue
+                    {
+                        Accountholder = holder.Attribute("name")?.Value,
+                        Address = holder.Attribute("address")?.Value,
+                        Date = DateTime.TryParseExact(holder.Attribute("dob")?.Value, "yyyy-MM-dd", null, DateTimeStyles.None, out var date) ? date : (DateTime?)null,
+                        Email = holder.Attribute("email")?.Value,
+                        Mobileno = holder.Attribute("mobile")?.Value,
+                        Pan = holder.Attribute("pan")?.Value,
+                        Balanceason = summary.Attribute("currentBalance")?.Value,
+                        Branch = summary.Attribute("branch")?.Value,
+                        DOB = summary.Attribute("drawingLimit")?.Value,
+                        Ifsc = summary.Attribute("ifscCode")?.Value,
+                        Micrcode = summary.Attribute("micrCode")?.Value,
+                        Opendate = summary.Attribute("openingDate")?.Value,
+                        Accountstatus = summary.Attribute("status")?.Value,
+                        Accounttype = summary.Attribute("type")?.Value,
+                        Statementperiodfrom = transactions?.Attribute("startDate")?.Value,
+                        Statementperiodto = transactions?.Attribute("endDate")?.Value
+                    };
+
+                    _ratingContext.ExtractionKeyValues.Add(accountInfo);
+                    _ratingContext.SaveChanges();
+
+                    
+
+                    //return Ok("Data inserted successfully.");
+                    return Ok(accountInfo);
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
+
+
+
+
+
+
+
 
 
 
