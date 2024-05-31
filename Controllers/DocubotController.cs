@@ -5,6 +5,7 @@ using DocuBot_Api.Models_Pq;
 using DocuBot_Api.Models_Pq.RequestViewModels;
 using DocuBot_Api.Models_Pq.ResponseModels;
 using DocuBot_Api.Rating_Models;
+using DocumentFormat.OpenXml.Drawing.Diagrams;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -19,6 +20,7 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Loadedfile = DocuBot_Api.Rating_Models.Loadedfile;
 
 namespace DocuBot_Api.Controllers
 {
@@ -153,21 +155,79 @@ namespace DocuBot_Api.Controllers
                 formData.Add(new StringContent(applno), "applno");
 
                 //var results = new List<object>();
+                var results = new List<UploadFilesResModel>();
                 // Add each file in the collection to the form data
                 foreach (var file in files)
                 {
-                    // Add the file content to the form data
-                    formData.Add(new StreamContent(file.OpenReadStream())
+                    var fileExtension = Path.GetExtension(file.FileName).ToLower();
+                    var fileName = file.FileName;
+
+                    if (fileExtension == ".xml")
                     {
-                        Headers =
+
+                        var existingFile = _ratingContext.Loadedfiles.FirstOrDefault(f => f.Docname == fileName && f.Applno == applno);
+                        if (existingFile != null)
+                        {
+                            // File with the same name and applno already exists, return its details
+                            results.Add(new UploadFilesResModel
+                            {
+                                Appno = applno,
+                                Docid = existingFile.Id,
+                                Filename = existingFile.Docname
+                            });
+
+                            continue; // Skip saving and processing this file
+                        }
+                        // Create a directory for XML files if it doesn't exist
+                        string xmlFolderPath = Path.Combine("XmlFiles");
+                        if (!Directory.Exists(xmlFolderPath))
+                        {
+                            Directory.CreateDirectory(xmlFolderPath);
+                        }
+
+                        // Save the XML file to the folder
+                        string xmlFilePath = Path.Combine(xmlFolderPath, file.FileName);
+                        using (var stream = new FileStream(xmlFilePath, FileMode.Create))
+                        {
+                            await file.CopyToAsync(stream);
+                        }
+
+                        var relativeFilePath = $"./XmlFiles/{fileName.Replace(@"\", "/")}";
+
+                        var loadedFile = new Loadedfile
+                        {
+                            Docname = relativeFilePath, // Store the file path with the correct format
+                            Applno = applno
+                        };
+
+                        _ratingContext.Loadedfiles.Add(loadedFile);
+                        await _ratingContext.SaveChangesAsync();
+
+                        results.Add(new UploadFilesResModel
+                        {
+                            Appno = applno,
+                            Docid = loadedFile.Id,
+                            Filename = relativeFilePath
+                        });
+                    }
+                    else if (fileExtension == ".pdf")
+                    {
+
+                        // Add the file content to the form data
+                        formData.Add(new StreamContent(file.OpenReadStream())
+                        {
+                            Headers =
                         {
                           ContentLength = file.Length,
                            ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType)
                         }
-                    },
+                        },
                   "files", file.FileName);
+                    }
                 }
 
+                if (formData.Any(content => content.Headers.ContentType.MediaType == "application/pdf"))
+                {
 
                     // Append docid to the endpoint URL
                     string requestUrl = $"{baseUrl}{endpoint}?applno={applno}";
@@ -194,7 +254,7 @@ namespace DocuBot_Api.Controllers
                         });
                     }
 
-                    var results = new List<UploadFilesResModel>();
+                    //var results = new List<UploadFilesResModel>();
 
                     foreach (var item in insertedIds)
                     {
@@ -240,9 +300,21 @@ namespace DocuBot_Api.Controllers
                         status = "Failure"
                     });
 
-                }
+                    }
                              
+                }
+                else
+                {
+                    return new JsonResult(new
+                    {
+                        code = "1",
+                        message = "Xml file has been inserted Succesfully",
+                        insertedFiles = results,
+                        status = "Success"
+                    });
+                }
             }
+
             catch (Exception ex)
             {
                 // Log the exception
@@ -255,126 +327,152 @@ namespace DocuBot_Api.Controllers
 
 
 
-        [Authorize]
+       [Authorize]
         [HttpPost("ExtractKeyVal")]
         public async Task<ActionResult> ExtractKeyval(int docid)
         {
-            string baseUrl = "https://demo.botaiml.com";
-            string endpoint = "/extract/extract_details/";
+            // Retrieve the file path based on the docid
+            var filePath = _ratingContext.Loadedfiles
+                            .Where(f => f.Id == docid)
+                            .Select(f => f.Docname)
+                            .FirstOrDefault();
 
-            if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(endpoint))
+            if (string.IsNullOrEmpty(filePath))
             {
-                return BadRequest("Invalid base URL or endpoint.");
+                return NotFound($"File not found for docId: {docid}");
             }
 
-            try
+            // Check the file extension
+            var fileExtension = Path.GetExtension(filePath).ToLower();
+            if (fileExtension == ".xml")
             {
-                using var client = new HttpClient
+                // Call ProcessXml method
+                return await ExtractData(filePath , docid);
+            }
+            else if (fileExtension == ".pdf")
+            {
+
+
+                string baseUrl = "https://demo.botaiml.com";
+                string endpoint = "/extract/extract_details/";
+
+                if (string.IsNullOrEmpty(baseUrl) || string.IsNullOrEmpty(endpoint))
                 {
-                    BaseAddress = new Uri(baseUrl)
-                };
-
-                // Append docid to the endpoint URL
-                string requestUrl = $"{baseUrl}{endpoint}?docid={docid}";
-
-                var response = await client.PostAsync(requestUrl, null);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-
-                    // Parse the response content to check for pdf_path
-                    var responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
-                    if (responseObject != null && responseObject.ContainsKey("pdf_path"))
-                    {
-                        string pdfPath = responseObject["pdf_path"].ToString();
-                        return await ExtractData(pdfPath);
-                    }
-
-                    var bankName = _context.ExtractionKeyValues
-                    .Where(e => e.Docid == docid)
-                    .Select(e => e.Bankname)
-                    .FirstOrDefault();
-
-                    if (string.IsNullOrEmpty(bankName))
-                    {
-                        return NotFound($"Bank not found for docId: {docid}");
-                    }
-
-                    var bankConfiguration = _configuration.GetSection($"BankConfigurations:{bankName.ToUpper()}")
-                        .Get<BankConfiguration>();
-
-                    if (bankConfiguration == null)
-                    {
-                        return NotFound($"Configuration not found for bank: {bankName}");
-                    }
-
-                    var bankDetails = _context.ExtractionKeyValues
-                        .Where(e => e.Docid == docid && e.Bankname == bankName)
-                        .Select(e => GenerateResponse(e, bankConfiguration.Fields))
-                        .FirstOrDefault();
-
-
-                    if (bankDetails == null)
-                    {
-                        return NotFound();
-                    }
-
-                    ConvertDatesToStandardFormat(bankDetails);
-
-                    //return Ok(bankDetails);
-
-                    return new JsonResult(new
-                    {
-                        code = "1",
-                        Extarcted_Values = bankDetails,
-                        message = "Documents processing completed",
-                        status = "Success"
-                    });
-
-
+                    return BadRequest("Invalid base URL or endpoint.");
                 }
-                else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
+
+                try
                 {
-                    // Handle redirect by extracting the new location from headers
-                    var redirectUrl = response.Headers.Location;
-                    // Make a new request to the redirected URL
-                    response = await client.PostAsync(redirectUrl, null);
+                    using var client = new HttpClient
+                    {
+                        BaseAddress = new Uri(baseUrl)
+                    };
+
+                    // Append docid to the endpoint URL
+                    string requestUrl = $"{baseUrl}{endpoint}?docid={docid}";
+
+                    var response = await client.PostAsync(requestUrl, null);
 
                     if (response.IsSuccessStatusCode)
                     {
                         var responseContent = await response.Content.ReadAsStringAsync();
-                        //return Ok(responseContent);
+
+                        //// Parse the response content to check for pdf_path
+                        //var responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
+                        //if (responseObject != null && responseObject.ContainsKey("pdf_path"))
+                        //{
+                        //    string pdfPath = responseObject["pdf_path"].ToString();
+                        //    return await ExtractData(pdfPath);
+                        //}
+
+                        var bankName = _context.ExtractionKeyValues
+                        .Where(e => e.Docid == docid)
+                        .Select(e => e.Bankname)
+                        .FirstOrDefault();
+
+                        if (string.IsNullOrEmpty(bankName))
+                        {
+                            return NotFound($"Bank not found for docId: {docid}");
+                        }
+
+                        var bankConfiguration = _configuration.GetSection($"BankConfigurations:{bankName.ToUpper()}")
+                            .Get<BankConfiguration>();
+
+                        if (bankConfiguration == null)
+                        {
+                            return NotFound($"Configuration not found for bank: {bankName}");
+                        }
+
+                        var bankDetails = _context.ExtractionKeyValues
+                            .Where(e => e.Docid == docid && e.Bankname == bankName)
+                            .Select(e => GenerateResponse(e, bankConfiguration.Fields))
+                            .FirstOrDefault();
+
+
+                        if (bankDetails == null)
+                        {
+                            return NotFound();
+                        }
+
+                        ConvertDatesToStandardFormat(bankDetails);
+
+                        //return Ok(bankDetails);
+
+                        return new JsonResult(new
+                        {
+                            code = "1",
+                            Extarcted_Values = bankDetails,
+                            message = "Documents processing completed",
+                            status = "Success"
+                        });
+
 
                     }
-                }
-                else
-                {
-                    // Handle other cases where the response status code is not success or redirect
-                    var responseContent = await response.Content.ReadAsStringAsync();
-                    //return StatusCode((int)response.StatusCode, responseContent);
-
-                    return new JsonResult(new
+                    else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                     {
-                        code = "0",
-                        message = responseContent,
-                        status = "Failure"
-                    });
+                        // Handle redirect by extracting the new location from headers
+                        var redirectUrl = response.Headers.Location;
+                        // Make a new request to the redirected URL
+                        response = await client.PostAsync(redirectUrl, null);
+
+                        if (response.IsSuccessStatusCode)
+                        {
+                            var responseContent = await response.Content.ReadAsStringAsync();
+                            //return Ok(responseContent);
+
+                        }
+                    }
+                    else
+                    {
+                        // Handle other cases where the response status code is not success or redirect
+                        var responseContent = await response.Content.ReadAsStringAsync();
+                        //return StatusCode((int)response.StatusCode, responseContent);
+
+                        return new JsonResult(new
+                        {
+                            code = "0",
+                            message = responseContent,
+                            status = "Failure"
+                        });
+                    }
                 }
+                catch (Exception ex)
+                {
+                    // Log the exception
+                    //_logger.LogError($"Exception occurred: {ex.Message}");
+                    //return StatusCode(500, "Internal Server Error");
+                    return new JsonResult(new { code = "0", message = ex.Message, status = "Failure" });
+                }
+                //return BadRequest("Unexpected error occurred");
+                return new JsonResult(new { code = "0", message = "Unexpected error occurred", status = "Failure" });
             }
-            catch (Exception ex)
             {
-                // Log the exception
-                //_logger.LogError($"Exception occurred: {ex.Message}");
-                //return StatusCode(500, "Internal Server Error");
-                return new JsonResult(new { code = "0", message = ex.Message, status = "Failure" });
+                return BadRequest("Unsupported file type. Only .xml and .pdf are supported.");
             }
-            //return BadRequest("Unexpected error occurred");
-            return new JsonResult(new { code = "0", message = "Unexpected error occurred", status = "Failure" });
         }
 
 
-        private async Task<ActionResult> ExtractData(string pdfPath)
+        private async Task<ActionResult> ExtractData(string pdfPath, int docid)
         {
             try
             {
@@ -382,6 +480,43 @@ namespace DocuBot_Api.Controllers
                 {
                     return NotFound("File not found.");
                 }
+
+                var existingData = await _ratingContext.ExtractionKeyValues
+          .Where(e => e.Docid == docid)
+          .FirstOrDefaultAsync();
+
+                if (existingData != null)
+                {
+                    // Return the existing data
+                    var response = new
+                    {
+                        code = "1",
+                        extracted_Values = new
+                        {
+                            Accountholder = existingData.Accountholder,
+                            Address = existingData.Address,
+                            Accountno = existingData.Accountno,
+                            Branch = existingData.Branch,
+                            Ifsc = existingData.Ifsc,
+                            Micrcode = existingData.Micrcode,
+                            Opendate = existingData.Opendate,
+                            DOB = existingData.Date,
+                            Mobileno = existingData.Mobileno,
+                            Email = existingData.Email,
+                            Balanceason = existingData.Balanceason,
+                            AccountStatus = existingData.Accountstatus,
+                            AccountType = existingData.Accounttype,
+                            Pan = existingData.Pan,
+                            Statementperiodfrom = existingData.Statementperiodfrom,
+                            Statementperiodto = existingData.Statementperiodto
+                        },
+                        message = "Data retrieved from the database",
+                        status = "Success"
+                    };
+
+                    return new JsonResult(response);
+                }
+
 
                 using var stream = new FileStream(pdfPath, FileMode.Open);
 
@@ -397,19 +532,24 @@ namespace DocuBot_Api.Controllers
 
                 XNamespace ns = "http://api.rebit.org.in/FISchema/deposit";
 
+                var account = doc.Descendants(ns + "Account").FirstOrDefault();
                 var holder = doc.Descendants(ns + "Holder").FirstOrDefault();
                 var summary = doc.Descendants(ns + "Summary").FirstOrDefault();
                 var transactions = doc.Descendants(ns + "Transactions").FirstOrDefault();
 
-                if (holder == null || summary == null || transactions == null)
+                if (account == null || holder == null || summary == null || transactions == null)
                 {
                     return BadRequest("Invalid XML format or missing elements.");
                 }
 
+              
+
                 var accountInfo = new ExtractionKeyValue
                 {
+                    Docid = docid,
                     Accountholder = holder.Attribute("name")?.Value,
                     Address = holder.Attribute("address")?.Value,
+                    Accountno = account.Attribute("maskedAccNumber")?.Value,
                     Date = DateTime.TryParseExact(holder.Attribute("dob")?.Value, "yyyy-MM-dd", null, DateTimeStyles.None, out var date) ? date : (DateTime?)null,
                     Email = holder.Attribute("email")?.Value,
                     Mobileno = holder.Attribute("mobile")?.Value,
@@ -429,7 +569,34 @@ namespace DocuBot_Api.Controllers
                 _ratingContext.ExtractionKeyValues.Add(accountInfo);
                 await _ratingContext.SaveChangesAsync();
 
-                return Ok(accountInfo);
+
+                var newresponse = new
+                {
+                    code = "1",
+                    extracted_Values = new
+                    {
+                        Accountholder = accountInfo.Accountholder,
+                        Address = accountInfo.Address,
+                        Accountno = accountInfo.Accountno,
+                        Branch = accountInfo.Branch,
+                        Ifsc = accountInfo.Ifsc,
+                        Micrcode = accountInfo.Micrcode,
+                        Opendate = accountInfo.Opendate,
+                        DOB = accountInfo.Date,
+                        Mobileno = accountInfo.Mobileno,
+                        Email = accountInfo.Email,
+                        Balanceason = accountInfo.Balanceason,                       
+                        AccountStatus = accountInfo.Accountstatus,
+                        AccountType = accountInfo.Accounttype,
+                        Pan = accountInfo.Pan,                     
+                        Statementperiodfrom = accountInfo.Statementperiodfrom,
+                        Statementperiodto = accountInfo.Statementperiodto
+                    },
+                    message = "Documents processing completed",
+                    status = "Success"
+                };
+
+                return new JsonResult(newresponse);
             }
             catch (Exception ex)
             {
@@ -647,111 +814,138 @@ namespace DocuBot_Api.Controllers
         [HttpPost("ExtractTransactions")]
         public async Task<ActionResult> ExtractTableData(int docid)
         {
-            string baseUrl = "https://demo.botaiml.com";
-            string endpoint = "/extract/extract_transactions/";
+            // Retrieve the file path based on the docid
+            var filePath = _ratingContext.Loadedfiles
+                            .Where(f => f.Id == docid)
+                            .Select(f => f.Docname)
+                            .FirstOrDefault();
 
-            if (!string.IsNullOrEmpty(baseUrl) && !string.IsNullOrEmpty(endpoint))
+            if (string.IsNullOrEmpty(filePath))
             {
-                try
+                return NotFound($"File not found for docId: {docid}");
+            }
+
+            // Check the file extension
+            var fileExtension = Path.GetExtension(filePath).ToLower();
+            if (fileExtension == ".xml")
+            {
+                // Call ProcessXml method
+                return await ProcessXml(docid);
+            }
+            else if (fileExtension == ".pdf")
+            {
+
+
+                string baseUrl = "https://demo.botaiml.com";
+                string endpoint = "/extract/extract_transactions/";
+
+                if (!string.IsNullOrEmpty(baseUrl) && !string.IsNullOrEmpty(endpoint))
                 {
-                    using var client = new HttpClient
+                    try
                     {
-                        BaseAddress = new Uri(baseUrl)
-                    };
+                        using var client = new HttpClient
+                        {
+                            BaseAddress = new Uri(baseUrl)
+                        };
 
-                    // Append docid to the endpoint URL
-                    string requestUrl = $"{baseUrl}{endpoint}?docid={docid}";
+                        // Append docid to the endpoint URL
+                        string requestUrl = $"{baseUrl}{endpoint}?docid={docid}";
 
-                    var response = await client.PostAsync(requestUrl, null);
+                        var response = await client.PostAsync(requestUrl, null);
 
-                    if (response.IsSuccessStatusCode)
-                    {
-                         var responseContent = await response.Content.ReadAsStringAsync();
+                        if (response.IsSuccessStatusCode)
+                        {
+                            var responseContent = await response.Content.ReadAsStringAsync();
 
-                            // Parse the response content to check for pdf_path
-                            var responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
-                            if (responseObject != null && responseObject.ContainsKey("pdf_path"))
-                            {
-                                string pdfPath = responseObject["pdf_path"].ToString();
-                                return await ProcessXml(docid);
-                            }
+                            //// Parse the response content to check for pdf_path
+                            //var responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
+                            //if (responseObject != null && responseObject.ContainsKey("pdf_path"))
+                            //{
+                            //    string pdfPath = responseObject["pdf_path"].ToString();
+                            //    return await ProcessXml(docid);
+                            //}
 
                             var bankName = _context.ExtractTransactionData
                         .Where(e => e.Docid == docid)
                         .Select(e => e.Bankname)
                         .FirstOrDefault();
 
-                        if (string.IsNullOrEmpty(bankName))
-                        {
-                            return NotFound($"Bank not found for docId: {docid}");
+                            if (string.IsNullOrEmpty(bankName))
+                            {
+                                return NotFound($"Bank not found for docId: {docid}");
+                            }
+
+                            var bankConfiguration = _configuration.GetSection($"TransBankConfig:{bankName.ToUpper()}")
+                                .Get<TransBankConfig>();
+
+                            if (bankConfiguration == null)
+                            {
+                                return NotFound($"Configuration not found for bank: {bankName}");
+                            }
+
+                            var bankDetails = await _context.ExtractTransactionData
+                            .Where(e => e.Docid == docid && e.Bankname == bankName)
+                            .Select(e => GenerateResponsefromconfig(e, bankConfiguration.Fields))
+                            .ToListAsync();
+
+
+
+                            if (bankDetails == null)
+                            {
+                                return NotFound();
+                            }
+
+                            ConvertDatesToStandardFormat(bankDetails);
+
+                            //return Ok(bankDetails);
+
+                            return new JsonResult(new
+                            {
+                                code = "1",
+                                Extarcted_Values = bankDetails,
+                                message = "Documents processing completed",
+                                status = "Success"
+                            });
                         }
-
-                        var bankConfiguration = _configuration.GetSection($"TransBankConfig:{bankName.ToUpper()}")
-                            .Get<TransBankConfig>();
-
-                        if (bankConfiguration == null)
+                        else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
                         {
-                            return NotFound($"Configuration not found for bank: {bankName}");
+                            // Handle redirect by extracting the new location from headers
+                            var redirectUrl = response.Headers.Location;
+                            // Make a new request to the redirected URL
+                            response = await client.PostAsync(redirectUrl, null);
+
+                            if (response.IsSuccessStatusCode)
+                            {
+                                var responseContent = await response.Content.ReadAsStringAsync();
+                                return Ok(responseContent);
+                            }
                         }
-
-                        var bankDetails = await _context.ExtractTransactionData
-                        .Where(e => e.Docid == docid && e.Bankname == bankName)
-                        .Select(e => GenerateResponsefromconfig(e, bankConfiguration.Fields))
-                        .ToListAsync();
-
-
-
-                        if (bankDetails == null)
-                        {
-                            return NotFound();
-                        }
-
-                        ConvertDatesToStandardFormat(bankDetails);
-
-                        //return Ok(bankDetails);
-
-                        return new JsonResult(new
-                        {
-                            code = "1",
-                            Extarcted_Values = bankDetails,
-                            message = "Documents processing completed",
-                            status = "Success"
-                        });
-                    }
-                    else if (response.StatusCode == HttpStatusCode.Redirect || response.StatusCode == HttpStatusCode.TemporaryRedirect)
-                    {
-                        // Handle redirect by extracting the new location from headers
-                        var redirectUrl = response.Headers.Location;
-                        // Make a new request to the redirected URL
-                        response = await client.PostAsync(redirectUrl, null);
-
-                        if (response.IsSuccessStatusCode)
+                        else
                         {
                             var responseContent = await response.Content.ReadAsStringAsync();
-                            return Ok(responseContent);
+                            //return StatusCode((int)response.StatusCode, responseContent);
+                            return new JsonResult(new
+                            {
+                                code = "0",
+                                message = responseContent,
+                                status = "Failure"
+                            });
                         }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        var responseContent = await response.Content.ReadAsStringAsync();
-                        //return StatusCode((int)response.StatusCode, responseContent);
-                        return new JsonResult(new
-                        {
-                            code = "0",
-                            message = responseContent,
-                            status = "Failure"
-                        });
+                        // Log the exception
+                        //_logger.LogError($"Exception occurred: {ex.Message}");
+                        return new JsonResult(new { code = "0", message = ex.Message, status = "Failure" });
                     }
                 }
-                catch (Exception ex)
-                {
-                    // Log the exception
-                    //_logger.LogError($"Exception occurred: {ex.Message}");
-                    return new JsonResult(new { code = "0", message = ex.Message, status = "Failure" });
-                }
+
+                return new JsonResult(new { code = "0", message = "Unexpected error occurred, please pass the correct docid", status = "Failure" });
+            }
+            {
+                return new JsonResult(new { code = "0", message = "Unsupported file type. Only .xml and .pdf are supported.", status = "Failure" });
             }
 
-            return new JsonResult(new { code = "0", message = "Unexpected error occurred, please pass the correct docid", status = "Failure" });
         }
 
         private static object GenerateResponsefromconfig(Rating_Models.ExtractTransactionDatum entity, IEnumerable<string> fields)
@@ -818,6 +1012,36 @@ namespace DocuBot_Api.Controllers
                     return NotFound("File not found.");
                 }
 
+                var existingData = await _ratingContext.ExtractTransactionData
+           .Where(e => e.Docid == docid)
+           .Select(e => new
+           {
+               txnDate = e.TxnDate,
+               valueDate = e.ValueDate,
+               description = e.Description,
+               transactionId = e.TransactionId,
+               chequeNumber = e.ChequeNumber,
+               credit = e.Credit,
+               debit = e.Debit,
+               balance = e.Balance
+           })
+           .ToListAsync();
+
+                if (existingData.Any())
+                {
+                    // Return the existing data
+                    var response = new
+                    {
+                        code = "1",
+                        Extracted_Values = existingData,
+                        message = "Data retrieved from the database",
+                        status = "Success"
+                    };
+
+                    return new JsonResult(response);
+                }
+
+
                 // Read and process the file
                 var xmlContent = System.IO.File.ReadAllText(filePath);
                 XmlProcessor processor = new XmlProcessor();
@@ -827,6 +1051,7 @@ namespace DocuBot_Api.Controllers
                 {
                     var entity = new Rating_Models.ExtractTransactionDatum
                     {
+                        Docid = docid,
                         Credit = detail.TxnType == "CREDIT" ? detail.Amount.ToString() : null,
                         Debit = detail.TxnType == "DEBIT" ? detail.Amount.ToString() : null,
                         Balance = detail.CurrentBalance.ToString(),
@@ -843,7 +1068,14 @@ namespace DocuBot_Api.Controllers
                 }
 
                 _ratingContext.SaveChanges();
-                return Ok(result);
+                //return Ok(result);
+                return new JsonResult(new
+                {
+                    code = "1",
+                    Extarcted_Values = result,
+                    message = "Documents processing completed",
+                    status = "Success"
+                });
             }
             catch (Exception ex)
             {
@@ -917,7 +1149,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-        [Authorize]
+        //[Authorize]
         [HttpPost("Rating")]
         public async Task<ActionResult> Rating(string applno)
         {
@@ -967,7 +1199,7 @@ namespace DocuBot_Api.Controllers
                             _docubotDbContext.SaveChanges();
                         }
 
-                        if (loanDetails.Rating > 562)
+                        if (loanDetails.Rating > 400)
                         {
 
 

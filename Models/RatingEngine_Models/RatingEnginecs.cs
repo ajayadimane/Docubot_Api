@@ -135,7 +135,7 @@ namespace DocuBot_Api.Models.RatingEngine_Models
 
     public class XmlProcessorResult
     {
-        public List<XmlKeyVal> KeyValues { get; set; }
+        //public List<XmlKeyVal> KeyValues { get; set; }
         public List<XmlTransDetails> TransactionDetails { get; set; }
     }
 
