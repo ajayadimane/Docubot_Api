@@ -650,51 +650,55 @@ namespace DocuBot_Api.Controllers
         //    Directory.CreateDirectory(folderPath);
         //}
 
-
-        [HttpPost("Extarctxml")]
-        public  IActionResult ProcessXml(IFormFile file)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            {
+        [HttpPost("ExtractXml")]
+        public IActionResult ProcessXml(int docid)
+        {
             try
             {
-                if (file != null && file.Length > 0)
+                // Retrieve the file path based on the docid
+                var filePath = _ratingContext.Loadedfiles
+                                .Where(f => f.Id == docid)
+                                .Select(f => f.Docname)
+                                .FirstOrDefault();
+
+                if (string.IsNullOrEmpty(filePath))
                 {
-                    using (var reader = new StreamReader(file.OpenReadStream()))
+                    return NotFound("Document not found.");
+                }
+
+                // Ensure the file exists
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return NotFound("File not found.");
+                }
+
+                // Read and process the file
+                var xmlContent = System.IO.File.ReadAllText(filePath);
+                XmlProcessor processor = new XmlProcessor();
+                XmlProcessorResult result = processor.ProcessXml(xmlContent);
+
+                foreach (var detail in result.TransactionDetails)
+                {
+                    var entity = new ExtractTransactionDatum
                     {
-                        var xmlContent = reader.ReadToEnd();
-                        XmlProcessor processor = new XmlProcessor();
-                        XmlProcessorResult result = processor.ProcessXml(xmlContent);
-
-                        foreach (var detail in result.TransactionDetails)
-                        {
-                            var entity = new ExtractTransactionDatum
-                            {
-                                //Amount = detail.Amount.ToString(),
-                                Credit = detail.TxnType == "CREDIT" ? detail.Amount.ToString() : null,
-                                Debit = detail.TxnType == "DEBIT" ? detail.Amount.ToString() : null,
-                                Balance = detail.CurrentBalance.ToString(),
-                                Description = detail.Narration,
-                                ChequeNumber = detail.Reference,
-                                TxnDate = !string.IsNullOrEmpty(detail.TransactionTimestamp) ?
-            DateTime.Parse(detail.TransactionTimestamp) : (DateTime?)null,
-                                ValueDate = detail.Valuedate,
-                                TransactionId = detail.Txnid,
-                                Mode = detail.Mode,
-                                //Bankname = "icici",
-                                Type = detail.TxnType
-                            };
-                            _ratingContext.ExtractTransactionData.Add(entity);
-                        }
-                       _ratingContext.SaveChanges();
-                     return Ok(result);
-                        
-                    }
+                        Docid = docid,
+                        Credit = detail.TxnType == "CREDIT" ? detail.Amount.ToString() : null,
+                        Debit = detail.TxnType == "DEBIT" ? detail.Amount.ToString() : null,
+                        Balance = detail.CurrentBalance.ToString(),
+                        Description = detail.Narration,
+                        ChequeNumber = detail.Reference,
+                        TxnDate = !string.IsNullOrEmpty(detail.TransactionTimestamp) ?
+                                  DateTime.Parse(detail.TransactionTimestamp) : (DateTime?)null,
+                        ValueDate = detail.Valuedate,
+                        TransactionId = detail.Txnid,
+                        Mode = detail.Mode,
+                        Type = detail.TxnType
+                    };
+                    _ratingContext.ExtractTransactionData.Add(entity);
                 }
 
-                else
-                {
-                    return BadRequest("No file uploaded.");
-                }
-                
+                _ratingContext.SaveChanges();
+                return Ok(result);
             }
             catch (Exception ex)
             {
@@ -703,6 +707,7 @@ namespace DocuBot_Api.Controllers
                 return StatusCode(500, "Internal Server Error");
             }
         }
+
 
 
 

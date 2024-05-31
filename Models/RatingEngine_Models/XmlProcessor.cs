@@ -51,7 +51,7 @@ namespace DocuBot_Api.Models.RatingEngine_Models
 
             return new XmlProcessorResult
             {
-                KeyValues = xmlKeyVal,
+                //KeyValues = xmlKeyVal,
                 TransactionDetails = xmlTransDetails
             };
 
