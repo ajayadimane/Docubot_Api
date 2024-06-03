@@ -129,7 +129,7 @@ namespace DocuBot_Api.Controllers
         //    }
         //}
 
-        [Authorize]
+        //[Authorize]
         [HttpPost("UploadDocument")]
         public async Task<ActionResult> UploadDocument(IFormFileCollection files, string applno)
         {
@@ -160,24 +160,33 @@ namespace DocuBot_Api.Controllers
                 foreach (var file in files)
                 {
                     var fileExtension = Path.GetExtension(file.FileName).ToLower();
-                    var fileName = file.FileName;
+                    var fileName = "./XmlFiles/" + file.FileName;
 
                     if (fileExtension == ".xml")
                     {
 
                         var existingFile = _ratingContext.Loadedfiles.FirstOrDefault(f => f.Docname == fileName && f.Applno == applno);
+
                         if (existingFile != null)
                         {
                             // File with the same name and applno already exists, return its details
-                            results.Add(new UploadFilesResModel
-                            {
-                                Appno = applno,
-                                Docid = existingFile.Id,
-                                Filename = existingFile.Docname
-                            });
+                            //results.Add(new UploadFilesResModel
+                            //{
+                            //    Appno = applno,
+                            //    Docid = existingFile.Id,
+                            //    Filename = existingFile.Docname
+                            //});
 
-                            continue; // Skip saving and processing this file
+                            //continue; // Skip saving and processing this file
+
+                            return new JsonResult(new
+                            {
+                                code = "0",
+                                message = $"Xml file already present with the docid = {existingFile.Id}",
+                                status = "Failure"
+                            });
                         }
+                    
                         // Create a directory for XML files if it doesn't exist
                         string xmlFolderPath = Path.Combine("XmlFiles");
                         if (!Directory.Exists(xmlFolderPath))
