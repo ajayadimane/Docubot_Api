@@ -129,7 +129,7 @@ namespace DocuBot_Api.Controllers
         //    }
         //}
 
-        //[Authorize]
+        [Authorize]
         [HttpPost("UploadDocument")]
         public async Task<ActionResult> UploadDocument(IFormFileCollection files, string applno)
         {
@@ -173,7 +173,7 @@ namespace DocuBot_Api.Controllers
                             //results.Add(new UploadFilesResModel
                             //{
                             //    Appno = applno,
-                            //    Docid = existingFile.Id,
+                            //    Docid = existingFile.Id,   
                             //    Filename = existingFile.Docname
                             //});
 
@@ -201,7 +201,7 @@ namespace DocuBot_Api.Controllers
                             await file.CopyToAsync(stream);
                         }
 
-                        var relativeFilePath = $"./XmlFiles/{fileName.Replace(@"\", "/")}";
+                        var relativeFilePath = $"{fileName.Replace(@"\", "/")}";
 
                         var loadedFile = new Loadedfile
                         {
@@ -248,8 +248,8 @@ namespace DocuBot_Api.Controllers
                     {
                        
                      var responseContent = await response.Content.ReadAsStringAsync();
-                    var responseObject = JsonConvert.DeserializeObject<dynamic>(responseContent);
-                    var insertedIds = responseObject["inserted_ids"];
+                     var responseObject = JsonConvert.DeserializeObject<dynamic>(responseContent);
+                     var insertedIds = responseObject["inserted_ids"];
                     if (insertedIds == null || !insertedIds.HasValues)
                     {
                        // return Ok(new { message = responseObject["message"].ToString() });
@@ -1061,8 +1061,8 @@ namespace DocuBot_Api.Controllers
                     var entity = new Rating_Models.ExtractTransactionDatum
                     {
                         Docid = docid,
-                        Credit = detail.TxnType == "CREDIT" ? detail.Amount.ToString() : null,
-                        Debit = detail.TxnType == "DEBIT" ? detail.Amount.ToString() : null,
+                        Credit = detail.TxnType == "CREDIT" ? detail.Amount.ToString() : string.Empty,
+                        Debit = detail.TxnType == "DEBIT" ? detail.Amount.ToString() : string.Empty,
                         Balance = detail.CurrentBalance.ToString(),
                         Description = detail.Narration,
                         ChequeNumber = detail.Reference,
@@ -1158,7 +1158,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-        //[Authorize]
+        [Authorize]
         [HttpPost("Rating")]
         public async Task<ActionResult> Rating(string applno)
         {
@@ -1178,6 +1178,96 @@ namespace DocuBot_Api.Controllers
                     string requestUrl = $"{baseUrl}{endpoint}?applno={applno}";
 
                     var response = await client.PostAsync(requestUrl, null);
+
+                    var responseContent = await response.Content.ReadAsStringAsync();
+
+                    if (responseContent.Contains("Error In Calculating Rating engine: Income must be greater than 0"))
+                    {
+                        var loanDetails = await _context.Loandetails
+                   .FirstOrDefaultAsync(e => e.Applno == applno);
+
+                        if (loanDetails == null)
+                        {
+                            return NotFound();
+                        }
+
+                        loanDetails.Rating = 0;
+                        loanDetails.Income = 0;
+                        loanDetails.Expenses = 0;
+
+                        // Convert any DateTime properties to UTC
+                        if (loanDetails.Approvaldate.HasValue)
+                            loanDetails.Approvaldate = DateTime.SpecifyKind(loanDetails.Approvaldate.Value, DateTimeKind.Utc);
+                        if (loanDetails.Disbdate.HasValue)
+                            loanDetails.Disbdate = DateTime.SpecifyKind(loanDetails.Disbdate.Value, DateTimeKind.Utc);
+                        if (loanDetails.Emistartdate.HasValue)
+                            loanDetails.Emistartdate = DateTime.SpecifyKind(loanDetails.Emistartdate.Value, DateTimeKind.Utc);
+
+                        // Save changes to the PostgreSQL database
+                        _context.Update(loanDetails);
+                        await _context.SaveChangesAsync();
+                        
+
+                        var sqlServerEntity = await _docubotDbContext.LoanDetailsDemo
+                            .FirstOrDefaultAsync(e => e.Applno == applno);
+
+                        if (sqlServerEntity != null)
+                        {
+                            sqlServerEntity.Rating = 0;
+                            sqlServerEntity.Income = 0;
+                            sqlServerEntity.Expenses = 0;
+
+                            _docubotDbContext.Update(sqlServerEntity);
+                            await _docubotDbContext.SaveChangesAsync();
+                        }
+
+                        LoanDetails lndet = db.GetLoanDetails(applno);
+
+                        return new JsonResult(new
+                        {
+
+
+                            code = "0",
+                            message = "Your Application did not match the criteria due to income being 0",
+                            loandetails = new InsertLoanDetailsReq
+                            {
+                                Applno = lndet.Applno,
+                                //lndet.Loantypeid,
+                                Loanamt = lndet.Loanamt,
+                                Emi = lndet.Emi,
+                                Assetval = lndet.Assetval,
+                                Tenor = lndet.Tenor,
+                                //lndet.Appid,
+                                Approvaldate = lndet.Approvaldate,
+                                Disbdate = lndet.Disbdate,
+                                //lndet.Status,
+                                Owncontrib = lndet.Owncontrib,
+                                //lndet.Intrate,
+                                //lndet.Loanacno,
+                                Loantype = lndet.Loantype,
+                                Income = lndet.Income,
+                                Permth = lndet.Permth,
+                                Taxpaid = lndet.Taxpaid,
+                                Rir = lndet.Rir,
+                                Othemi = lndet.Othemi,
+                                Lvr = lndet.Lvr,
+                                Cibil = lndet.Cibil,
+                                Bounced = lndet.Bounced,
+                                Delayed = lndet.Delayed,
+                                Custtype = lndet.Custtype,
+                                Ccbal = lndet.Ccbal,
+                                Emistartdate = lndet.Emistartdate,
+
+                                Rating = lndet.Rating,
+                                MaxRating = 900,
+                                RatingCalculatedDate = DateTime.Now.ToString(),
+                                Dependents = lndet.Dependents,
+                                Expenses = lndet.Expenses
+                            },
+                            status = "Failure"
+                        });
+                    }
+
 
                     if (response.IsSuccessStatusCode)
 
