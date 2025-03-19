@@ -420,7 +420,8 @@ namespace DocuBot_Api.Controllers
 
                         if (bankDetails == null)
                         {
-                            return NotFound();
+                            //return NotFound();
+                            return new JsonResult(new { code = "0", message = "Process failed, Key-Value data found", status = "Failure" });
                         }
 
                         ConvertDatesToStandardFormat(bankDetails);
@@ -430,7 +431,7 @@ namespace DocuBot_Api.Controllers
                         return new JsonResult(new
                         {
                             code = "1",
-                            Extarcted_Values = bankDetails,
+                            Extracted_Values = bankDetails,
                             message = "Documents processing completed",
                             status = "Success"
                         });
@@ -875,9 +876,9 @@ namespace DocuBot_Api.Controllers
                             //}
 
                             var bankName = _context.ExtractTransactionData
-                        .Where(e => e.Docid == docid)
-                        .Select(e => e.Bankname)
-                        .FirstOrDefault();
+                           .Where(e => e.Docid == docid)
+                           .Select(e => e.Bankname)
+                           .FirstOrDefault();
 
                             if (string.IsNullOrEmpty(bankName))
                             {
@@ -899,9 +900,10 @@ namespace DocuBot_Api.Controllers
 
 
 
-                            if (bankDetails == null)
+                            if (bankDetails == null || !bankDetails.Any())
                             {
-                                return NotFound();
+                                //return NotFound();
+                                return new JsonResult(new { code = "0", message = "Process failed, No  data found", status = "Failure" });
                             }
 
                             ConvertDatesToStandardFormat(bankDetails);
@@ -911,7 +913,7 @@ namespace DocuBot_Api.Controllers
                             return new JsonResult(new
                             {
                                 code = "1",
-                                Extarcted_Values = bankDetails,
+                                Extracted_Values = bankDetails,
                                 message = "Documents processing completed",
                                 status = "Success"
                             });
@@ -1081,7 +1083,7 @@ namespace DocuBot_Api.Controllers
                 return new JsonResult(new
                 {
                     code = "1",
-                    Extarcted_Values = result,
+                    Extracted_Values = result,
                     message = "Documents processing completed",
                     status = "Success"
                 });

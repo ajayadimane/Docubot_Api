@@ -20,15 +20,15 @@ namespace DocuBot_Api.Models.RatingEngine_Models
                         List<string> attvals = element.Attributes().Select(x => x.Value).ToList();
                         xmlTransDetails.Add(new XmlTransDetails
                         {
-                            Amount = decimal.Parse(attvals[0]),
-                            CurrentBalance = decimal.Parse(attvals[1]),
-                            Mode = attvals[2],
-                            Narration = attvals[3],
-                            Reference = attvals[4],
-                            TransactionTimestamp = attvals[5],
+                            Amount = decimal.Parse(attvals[2]),
+                            CurrentBalance = decimal.Parse(attvals[3]),
+                            Mode = attvals[1],
+                            Narration = attvals[7],
+                            Reference = attvals[8],
+                            TransactionTimestamp = attvals[4],
                             Txnid = attvals[6],
-                            TxnType = attvals[7],
-                            Valuedate = attvals[8]
+                            TxnType = attvals[0],
+                            Valuedate = attvals[5]
                         });
                     }
                     else
