@@ -129,7 +129,7 @@ namespace DocuBot_Api.Controllers
         //    }
         //}
 
-        //[Authorize]
+        [Authorize]
         [HttpPost("UploadDocument")]
         public async Task<ActionResult> UploadDocument(IFormFileCollection files, string applno)
         {
@@ -336,7 +336,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-       //[Authorize]
+       [Authorize]
         [HttpPost("ExtractKeyVal")]
         public async Task<ActionResult> ExtractKeyval(int docid)
         {
@@ -833,7 +833,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-       //[Authorize]
+       [Authorize]
         [HttpPost("ExtractTransactions")]
         public async Task<ActionResult> ExtractTableData(int docid)
         {
@@ -993,7 +993,7 @@ namespace DocuBot_Api.Controllers
                     if (transaction.ContainsKey("TxnDate") && transaction["TxnDate"] is DateTime txnDate)
                     {
                         // Convert TxnDate to the desired format
-                        transaction["TxnDate"] = txnDate.ToString("dd/MM/yyyy");
+                        transaction["TxnDate"] = txnDate.ToString("dd-MM-yyyy");
                     }
                     if (transaction.ContainsKey("ValueDate") && transaction["ValueDate"] is string valueDate)
                     {
@@ -1009,7 +1009,7 @@ namespace DocuBot_Api.Controllers
             DateTime parsedDate;
             if (DateTime.TryParseExact(date, new string[] { "yyyy-MM-ddTHH:mm:ss", "dd/MM/yyyy", "d MMM yyyy", "dd/MM/yy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsedDate))
             {
-                return parsedDate.ToString("dd/MM/yyyy");
+                return parsedDate.ToString("dd-MM-yyyy");
             }
             return date; // Return original string if unable to parse
         }
@@ -1109,10 +1109,10 @@ namespace DocuBot_Api.Controllers
                      {
                         //amount = detail.Amount.ToString("0.00"),
                         TxnDate = !string.IsNullOrEmpty(detail.TransactionTimestamp)
-                            ? DateTime.Parse(detail.TransactionTimestamp).ToString("dd/MM/yyyy")
+                            ? DateTime.Parse(detail.TransactionTimestamp).ToString("dd-MM-yyyy")
                             : null,
                         ValueDate = !string.IsNullOrEmpty(detail.Valuedate)
-                            ? DateTime.Parse(detail.Valuedate).ToString("dd/MM/yyyy")
+                            ? DateTime.Parse(detail.Valuedate).ToString("dd-MM-yyyy")
                             : null,
                         Description = detail.Narration,
                         Mode = detail.Mode,
