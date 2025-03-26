@@ -129,7 +129,7 @@ namespace DocuBot_Api.Controllers
         //    }
         //}
 
-        [Authorize]
+        //[Authorize]
         [HttpPost("UploadDocument")]
         public async Task<ActionResult> UploadDocument(IFormFileCollection files, string applno)
         {
@@ -328,7 +328,7 @@ namespace DocuBot_Api.Controllers
             {
                 // Log the exception
                 //_logger.LogError($"Exception occurred: {ex.Message}");
-                return new JsonResult(new { code = "0", message = ex.Message + " Files could not be uploaded. Try Again", status = "Failure" });
+                return new JsonResult(new { code = "0", message = ex.Message + " Files could not be uploaded. Please Try Again", status = "Failure" });
             }
 
             return BadRequest("Unexpected error occurred");
@@ -336,7 +336,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-       [Authorize]
+       //[Authorize]
         [HttpPost("ExtractKeyVal")]
         public async Task<ActionResult> ExtractKeyval(int docid)
         {
@@ -421,7 +421,7 @@ namespace DocuBot_Api.Controllers
                         if (bankDetails == null)
                         {
                             //return NotFound();
-                            return new JsonResult(new { code = "0", message = "Process failed, Key-Value data found", status = "Failure" });
+                            return new JsonResult(new { code = "0", message = "Process failed, Key-Value data not found", status = "Failure" });
                         }
 
                         ConvertDatesToStandardFormat(bankDetails);
@@ -431,7 +431,7 @@ namespace DocuBot_Api.Controllers
                         return new JsonResult(new
                         {
                             code = "1",
-                            Extracted_Values = bankDetails,
+                            extracted_Values = bankDetails,
                             message = "Documents processing completed",
                             status = "Success"
                         });
@@ -509,16 +509,16 @@ namespace DocuBot_Api.Controllers
                             Branch = existingData.Branch,
                             Ifsc = existingData.Ifsc,
                             Micrcode = existingData.Micrcode,
-                            Opendate = existingData.Opendate,
-                            DOB = existingData.Date,
+                            Opendate = FormatDate (existingData.Opendate),
+                            Dob = FormatDate(existingData.DOB),
                             Mobileno = existingData.Mobileno,
                             Email = existingData.Email,
                             Balanceason = existingData.Balanceason,
-                            AccountStatus = existingData.Accountstatus,
-                            AccountType = existingData.Accounttype,
+                            Accountstatus = existingData.Accountstatus,
+                            Accounttype = existingData.Accounttype,
                             Pan = existingData.Pan,
-                            Statementperiodfrom = existingData.Statementperiodfrom,
-                            Statementperiodto = existingData.Statementperiodto
+                            Statementperiodfrom = FormatDate(existingData.Statementperiodfrom),
+                            Statementperiodto = FormatDate(existingData.Statementperiodto)
                         },
                         message = "Data retrieved from the database",
                         status = "Success"
@@ -552,7 +552,18 @@ namespace DocuBot_Api.Controllers
                     return BadRequest("Invalid XML format or missing elements.");
                 }
 
-              
+                // Function to format date as dd/MM/yyyy
+                string FormatDate(string dateStr)
+                {
+                    if (DateTime.TryParseExact(dateStr, new[] { "yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy" },
+                        null, DateTimeStyles.None, out var date))
+                    {
+                        return date.ToString("dd-MM-yyyy");
+                    }
+                    return ""; // Return empty if the date is invalid
+                }
+
+
 
                 var accountInfo = new ExtractionKeyValue
                 {
@@ -560,20 +571,22 @@ namespace DocuBot_Api.Controllers
                     Accountholder = holder.Attribute("name")?.Value,
                     Address = holder.Attribute("address")?.Value,
                     Accountno = account.Attribute("maskedAccNumber")?.Value,
-                    Date = DateTime.TryParseExact(holder.Attribute("dob")?.Value, "yyyy-MM-dd", null, DateTimeStyles.None, out var date) ? date : (DateTime?)null,
+                    Date = DateTime.TryParseExact(summary.Attribute("balanceDateTime")?.Value, new[] { "yyyy-MM-dd", "dd-MM-yyyy", "MM/dd/yyyy" },
+                           null, DateTimeStyles.None, out var balanceDateTime) ? balanceDateTime : (DateTime?)null,
                     Email = holder.Attribute("email")?.Value,
                     Mobileno = holder.Attribute("mobile")?.Value,
                     Pan = holder.Attribute("pan")?.Value,
                     Balanceason = summary.Attribute("currentBalance")?.Value,
                     Branch = summary.Attribute("branch")?.Value,
-                    DOB = summary.Attribute("drawingLimit")?.Value,
+                    DOB = FormatDate(holder.Attribute("dob")?.Value),
                     Ifsc = summary.Attribute("ifscCode")?.Value,
                     Micrcode = summary.Attribute("micrCode")?.Value,
-                    Opendate = summary.Attribute("openingDate")?.Value,
+                    Odlimit = summary.Attribute("drawingLimit")?.Value,
+                    Opendate = FormatDate(summary.Attribute("openingDate")?.Value),
                     Accountstatus = summary.Attribute("status")?.Value,
                     Accounttype = summary.Attribute("type")?.Value,
-                    Statementperiodfrom = transactions?.Attribute("startDate")?.Value,
-                    Statementperiodto = transactions?.Attribute("endDate")?.Value
+                    Statementperiodfrom = FormatDate(transactions?.Attribute("startDate")?.Value),
+                    Statementperiodto = FormatDate(transactions?.Attribute("endDate")?.Value)
                 };
 
                 _ratingContext.ExtractionKeyValues.Add(accountInfo);
@@ -592,13 +605,13 @@ namespace DocuBot_Api.Controllers
                         Ifsc = accountInfo.Ifsc,
                         Micrcode = accountInfo.Micrcode,
                         Opendate = accountInfo.Opendate,
-                        DOB = accountInfo.Date,
+                        Dob = accountInfo.DOB,
                         Mobileno = accountInfo.Mobileno,
                         Email = accountInfo.Email,
-                        Balanceason = accountInfo.Balanceason,                       
-                        AccountStatus = accountInfo.Accountstatus,
-                        AccountType = accountInfo.Accounttype,
-                        Pan = accountInfo.Pan,                     
+                        Balanceason = accountInfo.Balanceason,
+                        Accountstatus = accountInfo.Accountstatus,
+                        Accounttype = accountInfo.Accounttype,
+                        Pan = accountInfo.Pan,
                         Statementperiodfrom = accountInfo.Statementperiodfrom,
                         Statementperiodto = accountInfo.Statementperiodto
                     },
@@ -675,8 +688,8 @@ namespace DocuBot_Api.Controllers
                         {
                             var dates = statementPeriod.Split("to");
 
-                            statementPeriodFrom = DateTime.ParseExact(dates[0].Trim(), "dd-MM-yyyy", CultureInfo.InvariantCulture);
-                            statementPeriodTo = DateTime.ParseExact(dates[1].Trim(), "dd-MM-yyyy", CultureInfo.InvariantCulture);
+                            statementPeriodFrom = DateTime.ParseExact(dates[0].Trim(), "dd/MM/yyyy", CultureInfo.InvariantCulture);
+                            statementPeriodTo = DateTime.ParseExact(dates[1].Trim(), "dd/MM/yyyy", CultureInfo.InvariantCulture);
 
                             response.Add("Statementperiodfrom", statementPeriodFrom.ToString("d MMM yyyy"));
                             response.Add("Statementperiodto", statementPeriodTo.ToString("d MMM yyyy"));
@@ -750,8 +763,8 @@ namespace DocuBot_Api.Controllers
                             var startDateString = $"{startDay}-{startMonth}-{startYear}";
                             var endDateString = $"{endDay}-{endMonth}-{endYear}";
 
-                            if (DateTime.TryParseExact(startDateString, "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodFrom) &&
-                                DateTime.TryParseExact(endDateString, "dd-MM-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodTo))
+                            if (DateTime.TryParseExact(startDateString, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodFrom) &&
+                                DateTime.TryParseExact(endDateString, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out statementPeriodTo))
                             {
                                 response.Add("Statementperiodfrom", statementPeriodFrom.ToString("d MMM yyyy"));
                                 response.Add("Statementperiodto", statementPeriodTo.ToString("d MMM yyyy"));
@@ -791,14 +804,14 @@ namespace DocuBot_Api.Controllers
                 {
                     if (details[key] is DateTime date)
                     {
-                        details[key] = date.ToString("dd/MM/yyyy");
+                        details[key] = date.ToString("dd-MM-yyyy");
                     }
                     else if (details[key] is string dateStr)
                     {
                         DateTime parsedDate;
                         if (DateTime.TryParse(dateStr, out parsedDate))
                         {
-                            details[key] = parsedDate.ToString("dd/MM/yyyy");
+                            details[key] = parsedDate.ToString("dd-MM-yyyy");
                         }
                     }
                 }
@@ -820,7 +833,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-       [Authorize]
+       //[Authorize]
         [HttpPost("ExtractTransactions")]
         public async Task<ActionResult> ExtractTableData(int docid)
         {
@@ -913,7 +926,7 @@ namespace DocuBot_Api.Controllers
                             return new JsonResult(new
                             {
                                 code = "1",
-                                Extracted_Values = bankDetails,
+                                extracted_Values = bankDetails,
                                 message = "Documents processing completed",
                                 status = "Success"
                             });
@@ -1024,18 +1037,18 @@ namespace DocuBot_Api.Controllers
                 }
 
                 var existingData = await _ratingContext.ExtractTransactionData
-           .Where(e => e.Docid == docid)
-           .Select(e => new
-           {
-               txnDate = e.TxnDate,
-               valueDate = e.ValueDate,
-               description = e.Description,
-               transactionId = e.TransactionId,
-               chequeNumber = e.ChequeNumber,
-               credit = e.Credit,
-               debit = e.Debit,
-               balance = e.Balance
-           })
+                .Where(e => e.Docid == docid)
+               .Select(e => new
+              {
+                   TxnDate = e.TxnDate.HasValue ? e.TxnDate.Value.ToString("dd-MM-yyyy") : null,
+                   ValueDate = !string.IsNullOrEmpty(e.ValueDate) ? DateTime.Parse(e.ValueDate).ToString("dd-MM-yyyy") : null,
+                   Description = e.Description,
+                   Mode = e.Mode,
+                   Credit = FormatDecimal(e.Credit),
+                   Debit = FormatDecimal(e.Debit),
+                   Balance = FormatDecimal(e.Balance),
+                   TxnId = e.TransactionId
+               })
            .ToListAsync();
 
                 if (existingData.Any())
@@ -1044,7 +1057,7 @@ namespace DocuBot_Api.Controllers
                     var response = new
                     {
                         code = "1",
-                        Extracted_Values = existingData,
+                        extracted_Values = existingData,
                         message = "Data retrieved from the database",
                         status = "Success"
                     };
@@ -1080,13 +1093,40 @@ namespace DocuBot_Api.Controllers
 
                 _ratingContext.SaveChanges();
                 //return Ok(result);
+                //return new JsonResult(new
+                //{
+                //    code = "1",
+                //    Extracted_Values = result.TransactionDetails,
+                //    message = "Documents processing completed",
+                //    status = "Success"
+                //});
+
                 return new JsonResult(new
                 {
                     code = "1",
-                    Extracted_Values = result,
-                    message = "Documents processing completed",
+                    extracted_Values = result.TransactionDetails?.Any() == true
+                     ? result.TransactionDetails.Select(detail => (object)new
+                     {
+                        //amount = detail.Amount.ToString("0.00"),
+                        TxnDate = !string.IsNullOrEmpty(detail.TransactionTimestamp)
+                            ? DateTime.Parse(detail.TransactionTimestamp).ToString("dd/MM/yyyy")
+                            : null,
+                        ValueDate = !string.IsNullOrEmpty(detail.Valuedate)
+                            ? DateTime.Parse(detail.Valuedate).ToString("dd/MM/yyyy")
+                            : null,
+                        Description = detail.Narration,
+                        Mode = detail.Mode,
+                        Credit = detail.TxnType == "CREDIT" ? detail.Amount.ToString("0.00") : string.Empty,
+                        Debit = detail.TxnType == "DEBIT" ? detail.Amount.ToString("0.00") : string.Empty,// Ensure two decimal places
+                        Balance = detail.CurrentBalance.ToString("0.00"), // Ensure two decimal places
+                        TxnId = detail.Txnid
+                        
+                    }).ToList<object>()
+                      :new List<object>(),
+                    message = result.TransactionDetails?.Any() == true ? "Documents processing completed" : "No transactions found",
                     status = "Success"
                 });
+
             }
             catch (Exception ex)
             {
@@ -1094,6 +1134,12 @@ namespace DocuBot_Api.Controllers
                 Console.WriteLine($"Error processing XML: {ex.Message}");
                 return StatusCode(500, "Internal Server Error");
             }
+        }
+
+        private static string? FormatDecimal(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            return decimal.TryParse(value, out var result) ? result.ToString("0.00") : value;
         }
 
 

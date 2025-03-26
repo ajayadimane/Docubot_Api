@@ -1,41 +1,59 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
-namespace DocuBot_Api.Rating_Models;
-
-public partial class ExtractTransactionDatum
+namespace DocuBot_Api.Rating_Models
 {
-    public int Id { get; set; }
+    public partial class ExtractTransactionDatum
+    {
+        public int Id { get; set; }
 
-    public int Docid { get; set; }
+        public int Docid { get; set; }
 
-    public string? SerialNo { get; set; }
+        [JsonPropertyName("SeriaNo")]
+        public string? SerialNo { get; set; }
 
-    public string? TransactionId { get; set; }
+        [JsonPropertyName("TransactionId")]
+        public string? TransactionId { get; set; }
 
-    public DateTime? TxnDate { get; set; }
+        [JsonPropertyName("TxnDate")]
+        public DateTime? TxnDate { get; set; }
 
-    public string? ValueDate { get; set; }
+        [JsonPropertyName("ValueDate")]
+        public string? ValueDate { get; set; }
 
-    public string? Description { get; set; }
+        [JsonPropertyName("Description")]
+        public string? Description { get; set; }
 
-    public string? ChequeNumber { get; set; }
+        [JsonPropertyName("ChequeNumber")]
+        public string? ChequeNumber { get; set; }
 
-    public string? Amount { get; set; }
+        [JsonPropertyName("Amount")]
+        public string? Amount { get; set; }
 
-    public string? Debit { get; set; }
+        [JsonPropertyName("Debit")]
+        public string? Debit { get; set; }
 
-    public string? Credit { get; set; }
+        [JsonPropertyName("Credit")]
+        public string? Credit { get; set; }
 
-    public string? Balance { get; set; }
+        [JsonPropertyName("Balance")]
+        public string? Balance { get; set; }
 
-    public string? InitBr { get; set; }
+        [JsonPropertyName("InitBr")]
+        public string? InitBr { get; set; }
 
-    public string? Bankname { get; set; }
+        [JsonPropertyName("BankName")]
+        public string? Bankname { get; set; }
 
-    public string? RemitterBranch { get; set; }
-    public string? Mode { get; set; }
-    public string? Type  { get; set; }
+        [JsonPropertyName("RemitterBranch")]
+        public string? RemitterBranch { get; set; }
 
-    public virtual Loadedfile Doc { get; set; } = null!;
+        [JsonPropertyName("Mode")]
+        public string? Mode { get; set; }
+
+        [JsonPropertyName("Type")]
+        public string? Type { get; set; }
+
+        public virtual Loadedfile Doc { get; set; } = null!;
+    }
 }
