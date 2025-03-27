@@ -1206,7 +1206,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-        [Authorize]
+        //[Authorize]
         [HttpPost("Rating")]
         public async Task<ActionResult> Rating(string applno)
         {
@@ -1273,8 +1273,6 @@ namespace DocuBot_Api.Controllers
 
                         return new JsonResult(new
                         {
-
-
                             code = "0",
                             message = "Your Application did not match the criteria due to income being 0",
                             loandetails = new 
@@ -1475,40 +1473,40 @@ namespace DocuBot_Api.Controllers
                             //return Ok("Your Application did not match the criteria with low or negative rating");
                             LoanDetails lndet = db.GetLoanDetails(applno);
                             return new JsonResult(new { code = "0", message = "Your Application did not match the criteria with low or negative rating",
-                                loandetails = new InsertLoanDetailsReq
+                                loandetails = new 
                                 {
-                                    Applno = lndet.Applno,
+                                    applno = lndet.Applno,
+                                    approvaldate = lndet.Approvaldate?.ToString("dd-MM-yyyy"),
+                                    assetval = lndet.Assetval,
+                                    bounced = lndet.Bounced,
+                                    ccbal = lndet.Ccbal,
+                                    cibil = lndet.Cibil,
+                                    custtype = lndet.Custtype,
+                                    delayed = lndet.Delayed,
+                                    dependents = lndet.Dependents,
+                                    disbdate = lndet.Disbdate?.ToString("dd-MM-yyyy"),
+                                    emi = lndet.Emi,
+                                    emistartdate = lndet.Emistartdate?.ToString("dd-MM-yyyy"),
+                                    expenses = lndet.Expenses,
+                                    income = lndet.Income,
                                     //lndet.Loantypeid,
-                                    Loanamt = lndet.Loanamt,
-                                    Emi = lndet.Emi,
-                                    Assetval = lndet.Assetval,
-                                    Tenor = lndet.Tenor,
+                                    loanamt = lndet.Loanamt,
+                                    loantype = lndet.Loantype,
+
+                                    lvr = lndet.Lvr,
+                                    othemi = lndet.Othemi,
                                     //lndet.Appid,
-                                    Approvaldate = lndet.Approvaldate,
-                                    Disbdate = lndet.Disbdate,
                                     //lndet.Status,
-                                    Owncontrib = lndet.Owncontrib,
+                                    owncontrib = lndet.Owncontrib,
                                     //lndet.Intrate,
                                     //lndet.Loanacno,
-                                    Loantype = lndet.Loantype,
-                                    Income = lndet.Income,
-                                    Permth = lndet.Permth,
-                                    Taxpaid = lndet.Taxpaid,
-                                    Rir = lndet.Rir,
-                                    Othemi = lndet.Othemi,
-                                    Lvr = lndet.Lvr,
-                                    Cibil = lndet.Cibil,
-                                    Bounced = lndet.Bounced,
-                                    Delayed = lndet.Delayed,
-                                    Custtype = lndet.Custtype,
-                                    Ccbal = lndet.Ccbal,
-                                    Emistartdate = lndet.Emistartdate,
-                                    
-                                    Rating = lndet.Rating,
-                                    MaxRating = 900,
-                                    RatingCalculatedDate = DateTime.Now.ToString(),
-                                    Dependents = lndet.Dependents,
-                                    Expenses = lndet.Expenses
+                                    permth = lndet.Permth,
+                                    rating = lndet.Rating,
+                                    maxRating = 900,
+                                    ratingCalculatedDate = DateTime.Now.ToString("dd-MM-yyyy"),
+                                    rir = lndet.Rir,
+                                    taxpaid = lndet.Taxpaid,
+                                    tenor = lndet.Tenor,
                                 },
                                 status = "Failure" });
                         }
