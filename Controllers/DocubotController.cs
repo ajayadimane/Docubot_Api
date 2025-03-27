@@ -1363,25 +1363,23 @@ namespace DocuBot_Api.Controllers
                                         secondCommand.CommandType = CommandType.StoredProcedure;
                                         secondCommand.Parameters.AddWithValue("@loancode", applno);
 
-                                        List<LoanSchedule> loanSchedule = new List<LoanSchedule>();
+                                        List<object> loanSchedule = new List<object>(); // Change to object list
 
                                         // Execute the second stored procedure
                                         using (SqlDataReader secondReader = await secondCommand.ExecuteReaderAsync())
                                         {
                                             while (await secondReader.ReadAsync())
                                             {
-                                                LoanSchedule scheduleItem = new LoanSchedule
+                                                loanSchedule.Add(new
                                                 {
                                                     Id = secondReader.GetInt32(secondReader.GetOrdinal("id")),
                                                     Period = secondReader.GetInt32(secondReader.GetOrdinal("period")),
-                                                    PayDate = secondReader.GetDateTime(secondReader.GetOrdinal("paydate")),
+                                                    PayDate = secondReader.GetDateTime(secondReader.GetOrdinal("paydate")).ToString("dd-MM-yyyy"),
                                                     Payment = secondReader.GetDecimal(secondReader.GetOrdinal("payment")),
                                                     Current_Balance = secondReader.GetDecimal(secondReader.GetOrdinal("current_balance")),
                                                     Interest = secondReader.GetDecimal(secondReader.GetOrdinal("interest")),
                                                     Principal = secondReader.GetDecimal(secondReader.GetOrdinal("principal"))
-                                                };
-
-                                                loanSchedule.Add(scheduleItem);
+                                                });
                                             }
                                         }
 
@@ -1476,37 +1474,37 @@ namespace DocuBot_Api.Controllers
                                 loandetails = new 
                                 {
                                     applno = lndet.Applno,
-                                    approvaldate = lndet.Approvaldate?.ToString("dd-MM-yyyy"),
-                                    assetval = lndet.Assetval,
-                                    bounced = lndet.Bounced,
-                                    ccbal = lndet.Ccbal,
-                                    cibil = lndet.Cibil,
-                                    custtype = lndet.Custtype,
-                                    delayed = lndet.Delayed,
-                                    dependents = lndet.Dependents,
-                                    disbdate = lndet.Disbdate?.ToString("dd-MM-yyyy"),
-                                    emi = lndet.Emi,
-                                    emistartdate = lndet.Emistartdate?.ToString("dd-MM-yyyy"),
-                                    expenses = lndet.Expenses,
-                                    income = lndet.Income,
-                                    //lndet.Loantypeid,
-                                    loanamt = lndet.Loanamt,
-                                    loantype = lndet.Loantype,
-
-                                    lvr = lndet.Lvr,
-                                    othemi = lndet.Othemi,
-                                    //lndet.Appid,
-                                    //lndet.Status,
-                                    owncontrib = lndet.Owncontrib,
-                                    //lndet.Intrate,
-                                    //lndet.Loanacno,
-                                    permth = lndet.Permth,
-                                    rating = lndet.Rating,
-                                    maxRating = 900,
-                                    ratingCalculatedDate = DateTime.Now.ToString("dd-MM-yyyy"),
-                                    rir = lndet.Rir,
-                                    taxpaid = lndet.Taxpaid,
-                                    tenor = lndet.Tenor,
+                                                    approvaldate = lndet.Approvaldate?.ToString("dd-MM-yyyy"),
+                                                    assetval = lndet.Assetval,
+                                                    bounced = lndet.Bounced,
+                                                    ccbal = lndet.Ccbal,
+                                                    cibil = lndet.Cibil,
+                                                    custtype = lndet.Custtype,
+                                                    delayed = lndet.Delayed,
+                                                    dependents = lndet.Dependents,
+                                                    disbdate = lndet.Disbdate?.ToString("dd-MM-yyyy"),
+                                                    emi = lndet.Emi,
+                                                    emistartdate = lndet.Emistartdate?.ToString("dd-MM-yyyy"),
+                                                    expenses = lndet.Expenses,
+                                                    income = lndet.Income,
+                                                    //lndet.Loantypeid,
+                                                    loanamt = lndet.Loanamt,
+                                                    loantype = lndet.Loantype,
+                                                    
+                                                    lvr = lndet.Lvr,
+                                                    othemi = lndet.Othemi,
+                                                    //lndet.Appid,
+                                                    //lndet.Status,
+                                                    owncontrib = lndet.Owncontrib,
+                                                    //lndet.Intrate,
+                                                    //lndet.Loanacno,
+                                                    permth = lndet.Permth,
+                                                    rating = lndet.Rating,
+                                                    maxRating = 900,
+                                                    ratingCalculatedDate = DateTime.Now.ToString("dd-MM-yyyy"),
+                                                    rir = lndet.Rir,
+                                                    taxpaid = lndet.Taxpaid,
+                                                    tenor = lndet.Tenor,
                                 },
                                 status = "Failure" });
                         }
