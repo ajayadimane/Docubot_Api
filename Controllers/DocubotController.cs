@@ -336,7 +336,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-       [Authorize]
+        [Authorize]
         [HttpPost("ExtractKeyVal")]
         public async Task<ActionResult> ExtractKeyval(int docid)
         {

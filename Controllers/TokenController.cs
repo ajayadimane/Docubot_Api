@@ -70,7 +70,7 @@ namespace DocuBot_Api.Controllers
             if (user != null)
             {
                 var token = GenerateToken(user);
-                response = Ok(new { code = "1", Token = token, message = "Login Success", status = "Success" });
+                response = Ok(new { code = "1", token = token, message = "Login Success", status = "Success" });
             }
             else
             {

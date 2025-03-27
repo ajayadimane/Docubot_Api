@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Text.Json.Serialization;
 
 namespace DocuBot_Api.Models.RatingEngine_Models
 {
@@ -34,18 +35,30 @@ namespace DocuBot_Api.Models.RatingEngine_Models
         public int DocumentId { get; set; }
     }
 
- 
+
 
     public class LoanSchedule
     {
-       
+        [JsonPropertyName("id")]
         public int Id { get; set; }
+
+        [JsonPropertyName("period")]
         public int Period { get; set; }
+
+        [JsonPropertyName("payDate")]
         public DateTime PayDate { get; set; }
-        public Decimal Payment { get; set; }
-        public Decimal Current_Balance { get; set; }
-        public Decimal Interest { get; set; }
-        public Decimal Principal { get; set; }
+
+        [JsonPropertyName("payment")]
+        public decimal Payment { get; set; }
+
+        [JsonPropertyName("currentBalance")]
+        public decimal Current_Balance { get; set; }
+
+        [JsonPropertyName("interest")]
+        public decimal Interest { get; set; }
+
+        [JsonPropertyName("principal")]
+        public decimal Principal { get; set; }
     }
 
 
