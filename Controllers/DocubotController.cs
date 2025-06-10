@@ -1206,7 +1206,7 @@ namespace DocuBot_Api.Controllers
 
 
 
-        //[Authorize]
+        [Authorize]
         [HttpPost("Rating")]
         public async Task<ActionResult> Rating(string applno)
         {
