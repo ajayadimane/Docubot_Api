@@ -1,5 +1,5 @@
 ﻿using DocuBot_Api.Models;
-using DocuBot_Api.Models.Doqbot_Models;
+
 using DocuBot_Api.Models.RatingEngine_Models;
 using DocuBot_Api.Models.User;
 using Microsoft.EntityFrameworkCore;
@@ -22,8 +22,6 @@ namespace DocuBot_Api.Context
           public DbSet<LoanDetails> LoanDetailsDemo { get; set; }
           public DbSet<LoanDoc> LoanDocs { get; set; }
          public DbSet<LoanSchedule> loanschedule { get; set; }
-
-        public DbSet<Kval> Kvals { get; set; }
 
         public virtual DbSet<UserInfo> UserInfos { get; set; }
 
