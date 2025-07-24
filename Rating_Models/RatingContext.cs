@@ -172,7 +172,7 @@ public partial class RatingContext : DbContext
             entity.Property(e => e.Nominationregistered)
                 .HasMaxLength(10)
                 .HasColumnName("nominationregistered");
-            //entity.Property(e => e.Odlimit).HasColumnName("odlimit");
+            entity.Property(e => e.Odlimit).HasColumnName("odlimit");
             entity.Property(e => e.Opendate).HasColumnName("opendate");
             entity.Property(e => e.Pan).HasColumnName("pan");
             entity.Property(e => e.Phone).HasColumnName("phone");

@@ -1,4 +1,5 @@
 using DocuBot_Api.Context;
+using DocuBot_Api.Models.Helpers;
 using DocuBot_Api.Models_Pq;
 using DocuBot_Api.Models_Pq.ResponseModels;
 using DocuBot_Api.Rating_Models;
@@ -26,6 +27,7 @@ builder.Services.Configure<BankConfiguration>(builder.Configuration.GetSection("
 
 builder.Services.Configure<TransBankConfig>(builder.Configuration.GetSection("TransBankConfig"));
 
+builder.Services.AddSingleton<KvalRepository>();
 
 
 
@@ -47,6 +49,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
     };
 });
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = null; // Keeps property names as defined
+    });
+
 
 
 builder.Services.AddConnections();
@@ -75,17 +84,17 @@ app.UsePathBase(new PathString("/docubot"));
 
 
 
-// Configure the HTTP request pipeline.
+// configure the http request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-//if (app.Environment.isproduction())
+//if (app.Environment.IsProduction())
 //{
-//    app.useswagger();
-//    app.useswaggerui();
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
 //}
 
 

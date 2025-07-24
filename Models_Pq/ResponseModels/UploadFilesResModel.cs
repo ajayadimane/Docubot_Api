@@ -1,9 +1,16 @@
-﻿namespace DocuBot_Api.Models_Pq.ResponseModels
+﻿using System.Text.Json.Serialization;
+
+namespace DocuBot_Api.Models_Pq.ResponseModels
 {
     public class UploadFilesResModel
     {
+        [JsonPropertyName("appno")]
         public string Appno { get; set; }
+
+        [JsonPropertyName("docid")]
         public int Docid { get; set; }
+
+        [JsonPropertyName("filename")]
         public string Filename { get; set; }
     }
 

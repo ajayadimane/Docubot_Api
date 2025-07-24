@@ -1,4 +1,5 @@
 ﻿using DocuBot_Api.Models;
+using DocuBot_Api.Models.Doqbot_Models;
 using DocuBot_Api.Models.RatingEngine_Models;
 using DocuBot_Api.Models.User;
 using Microsoft.EntityFrameworkCore;
@@ -22,16 +23,19 @@ namespace DocuBot_Api.Context
           public DbSet<LoanDoc> LoanDocs { get; set; }
          public DbSet<LoanSchedule> loanschedule { get; set; }
 
+        public DbSet<Kval> Kvals { get; set; }
+
         public virtual DbSet<UserInfo> UserInfos { get; set; }
+
 
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
             {
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see http://go.microsoft.com/fwlink/?LinkId=723263.
-                //optionsBuilder.UseSqlServer("Server=98.70.8.54;Database=DEMODOCUBOT;User ID=hermesforms;password=integra123$%^;TrustServerCertificate=True");
-                optionsBuilder.UseSqlServer("Server=10.10.20.51;Database=DEMODOCUBOT1;User ID=sa;password=int123$%^;TrustServerCertificate=True");
+
+                optionsBuilder.UseSqlServer("Server=98.70.8.54;Database=DEMODOCUBOT;User ID=hermesforms;password=integra123$%^;TrustServerCertificate=True");
+                //optionsBuilder.UseSqlServer("Server=10.10.20.51;Database=DEMODOCUBOT;User ID=sa;password=int123$%^;TrustServerCertificate=True");
             }
         }
 
